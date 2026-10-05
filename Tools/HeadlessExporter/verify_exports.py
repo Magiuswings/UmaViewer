@@ -11,6 +11,17 @@ manifest=json.loads(path.read_text(encoding="utf8"))
 root=path.parent
 snapshots={(j["source"],j["character_id"]):json.loads((root/j["snapshot"]).read_text(encoding="utf8")) for j in manifest["jobs"]}
 reports=[]
+assert len({e["path"] for e in manifest["blender_outputs"]}) == len(manifest["blender_outputs"]), "Output filename collision"
+if manifest.get("segmentation") == "broad_apparel_v2":
+    forbidden = {"accessories", "skirt", "cape", "upper_clothing", "gloves", "shoes", "socks_or_legwear"}
+    for job in manifest["jobs"]:
+        data = snapshots[job["source"],job["character_id"]]
+        assert not forbidden.intersection(job["categories"]), "Legacy fine clothing split remains"
+        assert not set(job["empty_apparel"]).intersection(job["categories"]), "Empty category contains geometry"
+        for category in job["empty_apparel"]:
+            assert not any(e["category"] == category and e["source"] == job["source"] and e["character_id"] == job["character_id"] for e in manifest["blender_outputs"]), "Empty group exported"
+        if job["kind"] == "head" and data["variant"] == "80":
+            assert "headwear" in job["empty_apparel"], "Bare supplied head acquired fictitious headwear"
 for entry in manifest["blender_outputs"]:
     data=snapshots[entry["source"],entry["character_id"]]
     category=entry["category"]
@@ -78,6 +89,7 @@ for job in manifest["jobs"]:
     expected=sum(len(face["triangles"])//3 for mesh in data["meshes"] for face in mesh["faces"])
     assert actual==expected,"Part partition lost or duplicated source triangles"
 result=dict(files=len(reports),passed=True,reports=reports,input_sha256=manifest["input_sha256"],
+            segmentation=manifest.get("segmentation"),empty_groups=True,unique_filenames=True,
             note="Checks geometry preservation, not semantic accuracy of skin/clothing heuristics or exact Unity shader appearance")
 (root/"verification.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
 print("UMA_REAL_EXPORTS_VERIFIED files="+str(len(reports)),flush=True)

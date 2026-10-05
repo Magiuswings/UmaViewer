@@ -23,7 +23,7 @@ def build(data, resources, output, category, job):
     selected = []
     for original in data["meshes"]:
         mesh = dict(original)
-        faces = [dict(f,part="body") for f in original["faces"] if category in (None,"body_base") or f["category"] == category]
+        faces = [dict(f,part="body") for f in original["faces"] if (category in (None,"body_base") or f["category"] == category) and f["triangles"]]
         if not faces: continue
         mesh["faces"] = faces
         selected.append(mesh)
@@ -52,6 +52,9 @@ def build(data, resources, output, category, job):
     scene["uma_character_id"] = data["character_id"]
     scene["uma_category"] = category or "source_reference"
     scene["uma_classification"] = job["classification"]
+    scene["uma_empty_apparel"] = json.dumps(job.get("empty_apparel",[]))
+    if data.get("segmentation"):
+        scene["uma_segmentation"] = json.dumps(data["segmentation"],ensure_ascii=False)
     if data.get("attachment"):
         scene["uma_attachment"] = json.dumps(data["attachment"])
     scene["uma_shader_fidelity"] = "Editable approximation; original textures and material parameters retained"

@@ -34,11 +34,12 @@ chara1001__SpecialWeek__head_chr1001_00__eyes.blend
 chara1001__SpecialWeek__head_chr1001_00__eyebrows.blend
 chara1001__SpecialWeek__head_chr1001_00__hair.blend
 chara1001__SpecialWeek__body_bdy1001_00__body_skin.blend
-chara1001__SpecialWeek__body_bdy1001_00__skirt.blend
-chara1001__SpecialWeek__body_bdy1001_00__shoes.blend
-chara1001__SpecialWeek__body_bdy1001_00__socks_or_legwear.blend
+chara1001__SpecialWeek__body_bdy1001_00__clothing.blend
+chara1001__SpecialWeek__body_bdy1001_00__footwear.blend
+chara1001__SpecialWeek__head_chr1001_00__headwear.blend
 chara1001__SpecialWeek__body_bdy1001_30__body_base.blend
 chara1001__SpecialWeek__tail_tail0001_00__tail.blend
+charashared__body_bdy0004_00_00_1_0_2__clothing.blend
 ```
 
 还会保留每个源 prefab 的 `__source_reference.blend`，包含未按人体／服装类别删减的整体几何。所有部件文件自带可编辑骨架、权重、UV、法线和打包贴图，可独立打开。
@@ -47,11 +48,31 @@ chara1001__SpecialWeek__tail_tail0001_00__tail.blend
 
 ## 身体和衣服的分离
 
-头／脸、眼、眉、发、尾依据原 Renderer 和材质分区识别。附加泪、腮红等归 `face_effects`，保留原活动状态。
+头／脸、眼、眉、尾依据原 Renderer 和材质分区识别。附加泪、腮红等归 `face_effects`，保留原活动状态。头发中的服饰附件另归头饰；头发与耳朵留在底模。
 
-**源躯干通常不是独立的皮肤和服装网格。** 本次 SpecialWeek 包的 `M_Body` 把皮肤、外衣、鞋袜和饰品放进一张图集。默认 `--skin-mode auto` 使用该角色脸部 diffuse 的主要肤色作为参照，在三角形顶点、边中点和中心共 7 个 UV 位置采样；至少 5 个位置匹配肤色的面归 `body_skin`。其余面按源骨骼名称及权重推断裙子、上衣、披肩、鞋、袜／腿部衣物、手套和饰品，其余归 `clothing`。
+**2026-10-05 第二版取消服装细分。** 衣物只输出以下三组，不再按 `Skirt`、`Jacket`、`Acc` 等名称硬拆裙子、上衣、披肩、手套或普通饰品：
 
-**皮肤和细分服装名称是启发式结果，需要复核。** 浅肤色布料、局部彩绘、跨肤色边界和特殊部件可能被误分；`socks_or_legwear` 不保证全部都是袜子。可调 `--skin-tolerance 42`，或用 `--skin-mode none` 禁用肤色拆分，保留 `body_clothing_mixed`。无论分类如何，所有类别的面合计必须与参照模型一致。
+| 类别 | 内容 |
+| --- | --- |
+| `clothing` | 头与躯干接点以下的全部服饰，排除鞋袜及其附着物 |
+| `headwear` | 头部区域的全部服饰，如发带、蝴蝶结、花饰等 |
+| `footwear` | 鞋、袜及其沿腿／脚骨骼绑定的附着物，合并输出 |
+
+分界使用源 `Neck` 接点，并检查附件是否属于 `Head` 的骨骼父链，避免 T pose 抬高的手臂、手套和衣领被误归头饰。跨界三角面按面中心归组，不切出新顶点。头饰先检查完整几何组件的附件、头发和耳骨影响，再归入头部区域；如果包中有 `80` 头部变体，使用其已有头发几何作为无饰参考。该参考假设在当前 1001、1003 样本中成立，其他角色需要复核。
+
+基础头发还提供自身颜色参照，用来保留直接绑定 `Head` 的同色发髻，并识别绑定 `Hair` 骨骼的异色布料。已经识别的布料会把同一发骨链控制的边饰一起带入服饰。1003 的 `43` 变体中，头纱上半归头饰，下半归服装，发髻保留在头发中。纹理本身存在配色掩码，所以这仍是带审计记录的启发式判断。
+
+鞋袜根据完整服饰组件和骨骼父链归组：挂在 Knee／Ankle／Toe 下的绑带和装饰跟鞋袜一起输出；不会因名字包含 `Acc` 或 `Ribbon` 被单独拆出。完全赤脚的源泳装中，裸腿覆盖率超过 95%、无附件骨影响的少量肤色采样遗漏会回到 `body_skin`，避免凭空生成鞋袜。组件连接只用于归组；原顶点、权重、UV 和面均保留。
+
+少量被肤色采样漏掉、与原皮肤共用至少 90% 边界顶点的细小面片也归回身体。躯干 prefab 内、由 Head／Neck 驱动的小型颈部皮肤接头根据其位置和范围归回身体，避免形成假头饰。上述修正均写入组件审计记录，属于局部启发式修正。
+
+类别没有实际三角面时，在 `manifest.json` 的 `empty_apparel` 记录为空，不生成该类 `.blend`，也不造空 Mesh 对象。每个源 prefab 的同一类别集中在一个文件／Collection 内；原 Renderer 对象和材质区仍保留，不跨 prefab 强制合并骨架。
+
+**源躯干通常不是独立的皮肤和服装网格。** `M_Body` 把皮肤、外衣、鞋袜和饰品放进一张图集。默认 `--skin-mode auto` 使用角色脸部 diffuse 的主要肤色作为参照，在三角形顶点、边中点和中心共 7 个 UV 位置采样；至少 5 个位置匹配肤色的面归 `body_skin`。其余服饰按上述三组输出。
+
+**皮肤／服饰和发饰识别仍是启发式结果，需要复核。** 浅肤色布料、局部彩绘、特殊刚性发束和与头发焊接的装饰可能被误分。可调 `--skin-tolerance 42`，或用 `--skin-mode none` 禁用肤色拆分，保留 `body_clothing_mixed`。无论分类如何，所有类别的面合计必须与参照模型一致。
+
+本次新包包含 `bdy0002`／`bdy0003`／`bdy0004` 共用身体。它们的材质原本没有贴图绑定，程序参照原仓库运行时规则，按完整 prefab 的服装和胸型参数绑定输入包已有贴图。`--generic-skin 0` 指定肤色贴图索引，默认 0；缺少角色数据库时不猜具体角色归属，保留 `shared`，也不猜具体角色配色。完整 prefab 名保留高度、体型等参数，避免同目录内不同身体重名。共用身体的肤色采样使用包内已有角色脸部参照。
 
 `--body-base-variant auto` 默认把现有躯干中“皮肤三角面比例最高”的完整服装模型另存为 `__body_base.blend`。这是候选选择，不是自动识别泳装的保证。SpecialWeek 实际选择变体 **30**，预览呈泳装。可以用 `--body-base-variant 30` 明确指定，或 `none` 禁用。底模保留选定服装的全部几何，不补全服装下面缺失的身体。
 
@@ -71,11 +92,27 @@ UnityFS body 网格的重复背面索引 pass 会去重，Blender 材质保持�
 
 2026-10-05 使用用户提供的 `SpecialWeek1.zip` 实际跑通整条链路。不是合成 JSON：输入含 228 个 UnityFS bundle，解析 10 个主要 prefab、41 个 Renderer，生成 66 个 `.blend`（10 个完整参照、55 个独立类别、1 个完整身体基底），引用 87 张实际贴图。
 
-每个文件均在新的 Blender 进程里逐个重新打开，并对照实际解析数据检查原索引／坐标、UV、权重、骨骼父链、贴图打包、默认姿势不变形和骨架驱动；另外检查类别分区的面数合计没有丢失或重复。完整参照模型合计 73,285 个三角面。生成了实际角色四套服装的 `preview.png` 并查看；这不等于全部自动分类已逐面人工验收。
+验证启动独立于导出的 Blender 进程，在其中逐个重新打开每个文件，并对照实际解析数据检查原索引／坐标、UV、权重、骨骼父链、贴图打包、默认姿势不变形和骨架驱动；另外检查类别分区的面数合计没有丢失或重复。完整参照模型合计 73,285 个三角面。生成了实际角色四套服装的 `preview.png` 并查看；这不等于全部自动分类已逐面人工验收。
 
 ```powershell
 blender --background --factory-startup --python-exit-code 1 --python verify_exports.py -- '<output>\manifest.json'
 blender --background --factory-startup --python-exit-code 1 --python preview_exports.py -- '<output>\manifest.json'
 ```
 
-`verification.json` 是实际检查结果。多角色大包的通用逻辑已实现，但本次输入只包含角色 1001，尚未用另一真实多角色包验证。缺少的身体表面、游戏动画和物理模拟不在此次交付中。
+上述 66 文件是第一版历史验证；第二版实际使用 `1001_swim.zip` 和 `1003_swim.zip` 重新导出。后者同时包含 1001、1003 及四个共用身体，已覆盖真实多角色输入、不同体型名称和共用泳装贴图绑定。
+
+| 第二版输入 | UnityFS bundle | 主要 prefab 导出任务 | 引用贴图 | 最终 `.blend` |
+| --- | ---: | ---: | ---: | ---: |
+| `1001_swim.zip` | 245 | 11 | 91 | 57 |
+| `1003_swim.zip` | 470 | 23 | 174 | 116 |
+
+包解析和躯干分组来自真实 ZIP；后续头饰修正复用这些真实快照。检查确认修正不改变原几何、骨骼或材质，且原 prefab 坐标下的当前规则与对齐快照的最终分类一致。
+
+`verification.json` 记录所有最终文件逐一重开后的检查结果，并额外检查没有残留旧服装细分类、输出文件名唯一、空类别不输出几何。头部 `80` 参考和共用赤脚泳装的空类别均检查。可生成服饰拆分预览：
+
+```powershell
+blender --background --factory-startup --python-exit-code 1 --python preview_segmentation.py -- '<output>\manifest.json' --character 1001 --variant 30
+blender --background --factory-startup --python-exit-code 1 --python preview_segmentation.py -- '<output>\manifest.json' --character 1001 --variant 00 --shared-body bdy0004_00_00_1_0_2
+```
+
+第二版输出建议使用新的目录，避免混入旧策略留下的文件。验证保证源几何、绑定和分类分区完整性，不等于逐面人工确认语义分类。缺少的身体表面、游戏动画和物理模拟不在此次交付中。

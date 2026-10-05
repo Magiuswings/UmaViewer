@@ -14,6 +14,7 @@ import zipfile
 import UnityPy
 from UnityPy.helpers.MeshHelper import MeshHandler
 from math3d import IDENTITY, components, inverse, multiply, normal, transform, trs, unity_matrix, vec
+from segmentation import classify, hair_reference
 
 HERE = Path(__file__).resolve().parent
 PREFAB = re.compile(r"(?:^|/)3d/chara/(head|body|tail)/([^/]+)/pfb_([^/]+)$")
@@ -104,18 +105,6 @@ def skin_palette(package, character):
         candidates.extend(color for color,_ in counts.most_common(1))
     return list(dict.fromkeys(candidates))[:15]
 
-def infer_clothing(bone_names, weights, vertices, triangle):
-    score = collections.Counter()
-    for v in triangle:
-        for name, weight in weights[v]: score[bone_names[name]] += weight / 3
-    garment = [(name,w) for name,w in score.items() if w > .02]
-    for token, category in (("Acc", "accessories"), ("Skirt", "skirt"), ("Mantle", "cape"), ("Jacket", "upper_clothing"), ("Ribbon", "accessories")):
-        if sum(w for name,w in garment if token.lower() in name.lower()) > .18: return category
-    if sum(w for name,w in garment if "ankle" in name.lower() or "toe" in name.lower()) > .48: return "shoes"
-    if sum(w for name,w in garment if "knee" in name.lower() or "thigh" in name.lower()) > .55: return "socks_or_legwear"
-    if sum(w for name,w in garment if any(t in name.lower() for t in ("wrist","thumb","finger","ring_","index_","middle_","little_"))) > .5: return "gloves"
-    return "clothing"
-
 def is_skin(triangle, uvs, image, palette, tolerance, scale, offset):
     points = [uvs[v][:2] for v in triangle]
     points += [[(points[a][c]+points[b][c])/2 for c in range(2)] for a,b in ((0,1),(1,2),(2,0))]
@@ -147,9 +136,9 @@ class Extractor:
             self.textures[k] = dict(path=relative, name=data.m_Name, source=self.package.sources[k], id=obj.path_id)
         return self.textures[k]["path"]
 
-    def material(self, obj, character, source_kind):
+    def material(self, obj, character, source_kind, identifier):
         # Common tail material's source texture bindings must be adapted to the owning character.
-        k = (key(obj), character, source_kind)
+        k = (key(obj), character, source_kind, identifier)
         if k in self.materials: return self.materials[k]
         data = self.package.read(obj)
         shader_name = "Unknown Unity shader"
@@ -174,6 +163,17 @@ class Extractor:
                 options = [o for o in self.package.objects if o.type.name == "Texture2D" and self.package.read(o).m_Name in (prefix+"_"+character+"_"+ending, prefix+"_0000_"+ending)]
                 options.sort(key=lambda o: ("_"+character+"_") not in self.package.read(o).m_Name)
                 chosen = options[0] if options else None
+            if source_kind == "body" and character == "shared" and name in ("_MainTex","_ToonMap","_TripleMaskMap","_OptionMaskMap"):
+                # Generic prefabs have empty bindings: UmaViewer fills these using costume + bust + skin.
+                fields = identifier[3:].split("_")
+                if len(fields) == 6 and fields[0] in ("0002", "0003", "0004"):
+                    costume = "_".join(fields[:2]) + ("_00" if fields[0] == "0003" else "_"+fields[2])
+                    skin = self.args.generic_skin if name in ("_MainTex", "_ToonMap") else "0"
+                    ending = {"_MainTex":"diff","_ToonMap":"shad_c","_TripleMaskMap":"base","_OptionMaskMap":"ctrl"}[name]
+                    texture_name = "tex_bdy" + costume + "_" + skin + "_" + fields[-1] + "_" + ending
+                    chosen = next((o for o in self.package.objects if o.type.name == "Texture2D" and self.package.read(o).m_Name == texture_name),None)
+                    if chosen is None and not ptr:
+                        self.errors.append(dict(kind="missing_generic_texture",material=data.m_Name,property=name,expected=texture_name))
             prop = dict(name=name,type="Texture",scale=components(value.m_Scale,2),offset=components(value.m_Offset,2),srgb=name in ("_MainTex","_BaseMap","_ToonMap","_DirtTex","_EmissiveTex"))
             try:
                 if chosen or ptr: prop["texture"] = self.texture(chosen or ptr.deref())
@@ -264,7 +264,7 @@ class Extractor:
                 material_index = -1
                 mat = None
                 if mat_ptr:
-                    mat = self.material(mat_ptr.deref(),character,source_kind)
+                    mat = self.material(mat_ptr.deref(),character,source_kind,identifier)
                     if mat not in materials: materials.append(mat)
                     material_index = materials.index(mat)
                 main = next((p for p in (mat or {}).get("properties",[]) if p["name"] == "_MainTex" and p.get("texture")),None)
@@ -294,7 +294,7 @@ class Extractor:
                         if image and handler.m_UV0:
                             skin,votes = is_skin(triangle,handler.m_UV0,image,palette,self.args.skin_tolerance,main["scale"],main["offset"])
                             stats["skin_votes"][str(votes)] += 1
-                            category = "body_skin" if skin else infer_clothing(bone_names,vertex_weights,handler.m_Vertices,triangle)
+                            category = "body_skin" if skin else "clothing"
                             part = "body" if skin else "clothing"
                         else:
                             category = "body_clothing_mixed"; part = "body"
@@ -323,6 +323,7 @@ def main():
     parser.add_argument("--character",action="append",default=[],help="Filter character IDs; default all found")
     parser.add_argument("--native-coordinates",action="store_true",help="Keep native prefab origins instead of aligning head/tail to available body bones")
     parser.add_argument("--body-base-variant",default="auto",help="Keep a complete source outfit as the body base: auto (most skin triangles), none, or variant such as 30")
+    parser.add_argument("--generic-skin",default="0",help="Source generic-costume skin texture index; default 0, no character database inference")
     args = parser.parse_args()
     args.names = dict(n.split("=",1) for n in args.name)
     source,output = args.input.resolve(),args.output.resolve()
@@ -341,7 +342,7 @@ def main():
     character_ids = sorted({m[2][3:].split("_")[0] for _,m in prefabs if m[1] in ("head","body") and int(m[2][3:].split("_")[0]) >= 1000})
     jobs = []
     for asset,match in prefabs:
-        kind,identifier = match[1],match[2]
+        kind,identifier = match[1],match[3]
         ident_id = identifier[3 if kind in ("head","body") else 4:].split("_")[0]
         if kind == "tail":
             texture_ids = sorted({re.search(r"_(\d{4})_diff$",package.read(o).m_Name)[1] for o in package.objects
@@ -351,6 +352,8 @@ def main():
         for character in owners:
             if args.character and character not in args.character: continue
             palette = skin_palette(package,character) if kind == "body" else []
+            if kind == "body" and character == "shared":
+                palette = list(dict.fromkeys(color for owner in character_ids for color in skin_palette(package,owner)))
             try:
                 data = extractor.prefab(asset,kind,identifier,character,palette)
             except Exception as error:
@@ -364,6 +367,22 @@ def main():
             jobs.append(dict(name=data["name"],snapshot=path.relative_to(output).as_posix(),character_id=character,source=asset,
                              kind=kind,categories=categories,skin_palette=palette,classification="heuristic" if kind == "body" and palette and args.skin_mode == "auto" else "source_renderer_material"))
             print("Decoded",data["name"],categories,flush=True)
+    references = {}
+    for job in jobs:
+        data = json.loads((output/job["snapshot"]).read_text(encoding="utf8"))
+        if job["kind"] == "head" and data["variant"] == "80":
+            references[job["character_id"]] = hair_reference(data,extractor.resources)
+    for job in jobs:
+        path = output/job["snapshot"]
+        data = json.loads(path.read_text(encoding="utf8"))
+        job["categories"] = classify(data, references.get(job["character_id"]),extractor.resources)
+        job["classification"] = "broad_apparel_v2"
+        job["empty_apparel"] = data["segmentation"]["empty_apparel"]
+        job["category_triangles"] = data["segmentation"]["categories"]
+        for mesh, audit in zip(data["meshes"], data["audits"]):
+            audit["categories"] = {f["category"]: sum(len(g["triangles"])//3 for g in mesh["faces"] if g["category"] == f["category"]) for f in mesh["faces"]}
+        write_json(path,data)
+        print("Grouped",job["name"],job["category_triangles"],flush=True)
     # Match UmaViewer's MergeBone anchors using source bone names, while keeping each prefab's own rig.
     if not args.native_coordinates:
         bodies = [j for j in jobs if j["kind"] == "body"]
@@ -392,7 +411,7 @@ def main():
             write_json(path,data)
     body_bases=[]
     if args.body_base_variant!="none":
-        for character in character_ids:
+        for character in sorted({j["character_id"] for j in jobs if j["kind"] == "body"}):
             candidates=[]
             for job in jobs:
                 if job["kind"]!="body" or job["character_id"]!=character: continue
@@ -409,6 +428,7 @@ def main():
                                        skin_triangle_ratio=score if args.body_base_variant=="auto" else None,
                                        note="Complete original outfit retained; no missing body surfaces reconstructed"))
     manifest = dict(version=1,input=str(source),unitypy_version=UnityPy.__version__,skin_mode=args.skin_mode,skin_tolerance=args.skin_tolerance,body_bases=body_bases,
+                    segmentation="broad_apparel_v2",generic_skin=args.generic_skin,
                     characters=character_ids,input_sha256=hashlib.sha256(source.read_bytes()).hexdigest() if source.is_file() else None,
                     jobs=jobs,assets=package.inventory,textures=list(extractor.textures.values()),
                     errors=extractor.errors,warnings=sorted(set(extractor.warnings)),resources="resources",blender_outputs=[])
