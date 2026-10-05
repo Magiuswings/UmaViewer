@@ -4,11 +4,13 @@ import collections
 import hashlib
 import json
 import math
+import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import zipfile
 
 import UnityPy
@@ -335,6 +337,11 @@ def main():
         previous=json.loads((output/"manifest.json").read_text(encoding="utf8"))
         if previous.get("input")!=str(source): parser.error("Output directory belongs to another input package; use a new directory")
     output.mkdir(parents=True,exist_ok=True)
+    # Keep this process and background Blender's scratch files on the output volume.
+    temporary = output / ".temp"
+    temporary.mkdir(parents=True,exist_ok=True)
+    for variable in ("TEMP", "TMP", "TMPDIR"): os.environ[variable] = str(temporary)
+    tempfile.tempdir = str(temporary)
     print("Loading named asset package...",flush=True)
     package = Package(source)
     extractor = Extractor(package,output,args)
@@ -429,6 +436,7 @@ def main():
                                        note="Complete original outfit retained; no missing body surfaces reconstructed"))
     manifest = dict(version=1,input=str(source),unitypy_version=UnityPy.__version__,skin_mode=args.skin_mode,skin_tolerance=args.skin_tolerance,body_bases=body_bases,
                     segmentation="broad_apparel_v2",generic_skin=args.generic_skin,
+                    temporary_directory=".temp",
                     characters=character_ids,input_sha256=hashlib.sha256(source.read_bytes()).hexdigest() if source.is_file() else None,
                     jobs=jobs,assets=package.inventory,textures=list(extractor.textures.values()),
                     errors=extractor.errors,warnings=sorted(set(extractor.warnings)),resources="resources",blender_outputs=[])

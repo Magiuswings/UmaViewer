@@ -11,7 +11,7 @@
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\run.cmd 'C:\Users\33775\Downloads\SpecialWeek1.zip' --output 'D:\UmaExports\SpecialWeek1' --name 1001=SpecialWeek --blender 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
+.\run.cmd 'C:\Users\33775\Downloads\SpecialWeek1.zip' --output 'E:\UmaExports\SpecialWeek1' --name 1001=SpecialWeek --blender 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
 ```
 
 也可用 `.venv/Scripts/python.exe export_assets.py ...`；省略 `--blender` 时，只导出真实解析的中间 JSON/PNG，随后运行：
@@ -23,6 +23,8 @@ blender --background --factory-startup --python-exit-code 1 --python headless_bl
 ZIP 与目录使用相同解析逻辑。一次处理输入包内找到的所有普通角色头／身体／尾 prefab；`--character 1001` 可限制角色。可重复提供 `--name ID=NAME`；没有名字时使用可靠的源角色 ID。共用尾通过专用 diffuse 纹理中的角色 ID 关联；无法明确归属的共用模型标记为 `shared`，不凭空指定角色。
 
 `--output` 不能位于输入目录里面。同一输入可以在相同输出目录重新生成该程序命名的结果；不同输入包应使用不同输出目录。
+
+程序会将本次 Python 进程和后台 Blender 的 `TEMP`／`TMP`／`TMPDIR` 指向输出目录内的 `.temp`，避免输出选在 E 盘时仍把临时文件写到 C 盘。该设置只影响本次进程及其子进程，不修改 Windows 全局环境变量或系统分页设置。
 
 ## 输出和命名
 
