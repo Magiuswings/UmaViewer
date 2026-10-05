@@ -23,6 +23,7 @@ concurrency:
 jobs:
   build:
     name: Windows x64 IL2CPP
+    if: github.repository == 'katboi01/UmaViewer' || vars.UNITY_BUILD_ENABLED == 'true'
     runs-on: windows-2022
     timeout-minutes: 120
 

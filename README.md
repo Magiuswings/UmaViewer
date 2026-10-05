@@ -1,4 +1,13 @@
 # Uma Viewer (2)
+
+## Blender export fork
+
+This fork adds **independent `clothing.blend` and `body.blend` exports**, with editable armatures, bone weights, material nodes, packed textures, UVs, vertex colors and existing mesh shape keys. Open **Blender Export [F8]** after loading a character and assign each renderer/material section to Clothing, Body or Exclude.
+
+Body export can use a **swimsuit or tight outfit as the body base**: load that costume, then use **Swimsuit / tight outfit -> Body**. It keeps existing surfaces without reconstructing missing skin. Unity shaders are converted to an editable EEVEE toon approximation and a Cycles material, with the original shader parameters retained. See [the Blender export guide](docs/BLENDER_EXPORT.md) for usage, build requirements and validation limits.
+
+The project currently pins **Unity 2022.3.62f3** in `ProjectSettings/ProjectVersion.txt`. Build this fork before using its new export panel; upstream release binaries do not contain this feature.
+
 ⚠️ If you see **"Failed to load il2cpp"** or the app cannot start on Windows, it may be blocked by **Windows Smart App Control**.
 
  If it fails, turn off Smart App Control:

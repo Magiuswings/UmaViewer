@@ -1,0 +1,48 @@
+name: Blender export smoke test
+
+on:
+  push:
+    paths:
+      - 'Assets/Scripts/Exporters/Blender*.cs'
+      - 'Assets/StreamingAssets/Blender/**'
+      - 'Tests/Blender/**'
+      - '.github/workflows/blender-export.yml'
+  pull_request:
+    paths:
+      - 'Assets/Scripts/Exporters/Blender*.cs'
+      - 'Assets/StreamingAssets/Blender/**'
+      - 'Tests/Blender/**'
+      - '.github/workflows/blender-export.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  blender:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Blender 4.2.23 LTS from the official distribution
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libxi6 libxrender1 libxkbcommon0 libsm6 libice6 libxxf86vm1
+          curl --fail --location --retry 3 https://download.blender.org/release/Blender4.2/blender-4.2.23-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp
+          echo '/tmp/blender-4.2.23-linux-x64' >> "$GITHUB_PATH"
+      - name: Convert and reopen separate clothing and body scenes
+        run: |
+          python Tests/Blender/create_fixture.py Tests/Local/fixture
+          blender --background --factory-startup --python-exit-code 1 --python Assets/StreamingAssets/Blender/uma_blender_import.py -- Tests/Local/fixture/model.uma.json --split
+          blender --background --factory-startup --python-exit-code 1 --python Tests/Blender/verify_blends.py -- Tests/Local/fixture
+          blender --background --factory-startup --python-exit-code 1 --python Tests/Blender/check_validation.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blender-synthetic-verification
+          path: |
+            Tests/Local/fixture/*.report.json
+            Tests/Local/fixture/verification.json

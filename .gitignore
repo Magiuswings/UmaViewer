@@ -65,3 +65,8 @@ Thumbs.db
 
 # Contains machine-specific game paths and preferences
 /Config.json
+
+# Local exporter validation outputs
+/Tests/Local/
+/Tests/Blender/__pycache__/
+/Assets/StreamingAssets/Blender/__pycache__/
