@@ -24,6 +24,8 @@ Machine-local reproducibility outputs are retained under ignored `Tests/Local/fi
 
 ## Outstanding acceptance
 
-No Unity Editor was found in checked standard installation locations; no Unity build Secrets were present in this new fork. No complete Unity project build or Windows player build has been performed. No actual Uma Musume character/costume export, UI interaction or visual comparison with the game has been performed.
+No Unity Editor was found in checked standard installation locations; no Unity build Secrets were present in this new fork. No complete Unity project build or Windows player build has been performed. The Unity UI/player export path and visual comparison with actual gameplay remain unverified.
+
+**Later headless validation on the same date:** the independent `Tools/HeadlessExporter` path has now actually exported the user-supplied `SpecialWeek1.zip`. It parsed 228 real UnityFS bundles, 10 main prefabs and 41 renderers, generated 66 Blender files and verified every file against decoded source geometry, weights, hierarchy, UV and packed textures. A real-character preview was rendered and inspected. This updates the real-data export evidence above; the Unity UI/player path and comparison with actual gameplay remain unverified. See `Tools/HeadlessExporter/README.md` for the exact boundaries, including heuristic body/clothing segmentation and missing shader dependencies.
 
 The body-base workflow uses an existing swimsuit/tight costume as approved by the user. Missing body surfaces are not reconstructed. The editable EEVEE/Cycles materials retain source parameters and textures, but Unity shader fidelity, regional palette encodings, face lighting, eye atlases, outlines and physics remain outside the verified claims above.

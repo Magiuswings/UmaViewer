@@ -8,6 +8,8 @@ Body export can use a **swimsuit or tight outfit as the body base**: load that c
 
 The project currently pins **Unity 2022.3.62f3** in `ProjectSettings/ProjectVersion.txt`. Build this fork before using its new export panel; upstream release binaries do not contain this feature.
 
+**Headless named-asset export:** [Tools/HeadlessExporter](Tools/HeadlessExporter/README.md) reads a `Loaded Assets -> Copy all` ZIP/directory directly with Python, then runs Blender in the background. It requires no Unity Editor or viewer UI. The complete path has been tested on a real SpecialWeek asset package, exporting independent parts and original-reference models with provenance filenames and packed textures. Body skin/garment segmentation is explicitly marked as heuristic.
+
 ⚠️ If you see **"Failed to load il2cpp"** or the app cannot start on Windows, it may be blocked by **Windows Smart App Control**.
 
  If it fails, turn off Smart App Control:

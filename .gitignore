@@ -70,3 +70,9 @@ Thumbs.db
 /Tests/Local/
 /Tests/Blender/__pycache__/
 /Assets/StreamingAssets/Blender/__pycache__/
+
+# Headless exporter environments and private asset outputs
+/Tools/HeadlessExporter/.venv/
+/Tools/HeadlessExporter/__pycache__/
+/Tools/HeadlessExporter/output/
+/Tools/HeadlessExporter/inspection/
