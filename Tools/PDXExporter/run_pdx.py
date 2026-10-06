@@ -26,6 +26,7 @@ def main():
     p.add_argument('--head-reference', type=Path, required=True)
     p.add_argument('--families', type=Path, help='Optional JSON: exact job name/source path -> confirmed costume family; topology checks still apply')
     p.add_argument('--character-db',type=Path,help='Actual read-only master.mdb for character -> body profile selection')
+    p.add_argument('--character-id',action='append',default=[],help='Optional IDs for table/body-type bindings; other asset components still export')
     p.add_argument('--base-costume',default='0004_00_00',help='Generic costume/subtype/setting used as body template')
     p.add_argument('--body-type-morphs',action='store_true',help='Generate table-validated whole-body type keys, without character-specific torso keys')
     p.add_argument('--only', action='append', default=[], help='Optional category filter for development / partial export')
@@ -106,7 +107,7 @@ def main():
     index=index_manifest(src,families)
     if args.character_db:
         from character_types import read_database,resolve_characters,make_body_type_groups
-        metadata=read_database(args.character_db,manifest.get('characters',[]))
+        metadata=read_database(args.character_db,args.character_id or manifest.get('characters',[]))
         resolution=resolve_characters(src,metadata,args.base_costume)
         (out/'character-body-profiles.json').write_text(json.dumps(resolution,ensure_ascii=False,indent=2),encoding='utf8')
         if args.body_type_morphs:

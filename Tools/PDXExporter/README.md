@@ -82,3 +82,50 @@ python run_pdx.py --manifest E:\skin1-inputs\manifest.json --output E:\PDX-body-
 胸型分离后的最终 96 个部件、96 次 PDX 插件回读、12 组形态和 47 个目标均通过独立验证。此前跨胸型的整身、皮肤和泳衣三个形态组已撤回，其余兼容组件保留。所有源类别的有向三角集合也与各自源模型核对；独立测试确认旧版统一分类的胸型 2 皮肤和服装会被此检查拒绝。角色专属宽衣物和裙子仍没有跨角色严格对应，保留独立模型及拒绝原因。当前没有 CK3 游戏内或原版动画的本轮运行验收。
 
 随后的实际数据库体型模式完成 **96 个部件、96 次 PDX 回读、13 组形态／48 个目标** 验证。其中只有一个身体类组，目标键只按体型命名，角色专用躯干键为 0。BS 端点对源模型和目标二进制的位置误差为 0；原始语义权重误差为 0，源绑定矩阵最大差 `2.566707e-6`，在 `1e-5` 浮点容差内。表中 173 个角色有 23 种 `(height,shape,bust)` 参数组合，当前素材只实际验证所提供的两个目标类型，其他组合不称为已完成模型验收。
+
+## 新增平胸与肥胖来源
+
+加入 `SpecialFat (1).zip` 后合并为 48 个任务，实际交付通过 **193 个部件、193 次 PDX 回读、31 组形态／99 个目标** 验证，包含 224 个 `.blend` 与 323 个 `.mesh`。新增通用泳装 `pfb_bdy0004_00_00_1_1_0` 与原有两种胸型都是 3,510 个顶点、5,472 面，整体拓扑、全部 UV、语义权重与骨架绑定在规定容差内对应。整体体型工程保持胸型 1 为 Basis，两个目标分别是 `height_1__shape_0__bust_2` 与 `height_1__shape_1__bust_0`；每个目标是一套完整组合，没有拆成胸型与体型的独立向量。
+
+实际数据库对应 1001、1002、1003 三位角色。`--character-id` 可重复指定需要建立数据库绑定的角色，例如 `--character-id 1001 --character-id 1002 --character-id 1003`；其他角色的已提供部件仍全部导出。1071 与 1105 的专属服装已导出，但当前包没有相应通用泳装参数模型，不能称为通用身体表验证通过。
+
+肥胖运动服 `pfb_bdy0002_01_03_1_0_2` 有 6,812 个顶点、9,074 面；目前提供的普通运动服 `pfb_bdy0002_01_00_1_0_1` 有 6,604 个顶点、8,860 面，两者拓扑不同，而且胸型也不同。因此肥胖来源保持独立部件，未生成虚构 BS。需要同胸型普通来源 `pfb_bdy0002_01_00_1_0_2` 才能继续验证是否有兼容的完整目标。
+
+## CK3 样例打包
+
+`build_ck3_mod.py` 从已验证的交付和用户自己的 `uma_3d.zip` 生成一个新的模组目录及 ZIP，不改写已有模组。它保留样例头部、shader、贴图和头部动画，注册组件资产库与完整形态组，采用 `portrait_group=uma`。`uma_ethnicity` 和用户测试命令使用的兼容拼写 `uma_ethnity` 均保留。
+
+```powershell
+blender --background --factory-startup --python-exit-code 1 --python export_mod_pose.py -- --blend E:\PDX-output\morphs\<body-type-group>\editable.blend --output E:\pose\uma_idle.anim --pdx-plugin E:\vendor\io_pdx_mesh --frames 30
+python build_ck3_mod.py --sample E:\uma_3d.zip --delivery E:\PDX-output --output E:\Uma-Combination-Mod --pdx-plugin E:\vendor\io_pdx_mesh --rest-animation E:\pose\uma_idle.anim --portrait-reference "D:\path\CK3\game\common\portrait_types\00_human_types.txt"
+```
+
+姿势脚本只在内存中改变肩部骨骼姿势，不修改 mesh 点或保存源 `.blend`，通过实际 PDX IO 导出 30 帧的恒定 `t/q/s` 采样。各身体动画状态暂时映射到这个常量姿势，未完成原版动作重定向。`scale=100` 仅写入游戏资产元数据，原 `.mesh` 字节保持不变。
+
+CK3 材质覆盖的 DDS 名称必须相对于对应 `.mesh` 所在目录；BS 属性的 entity 默认值必须为 0；基因的人像类型必须与样例注册名一致。本次实机排查发现此前打包版存在这些配置错误，已修正工具。**文件结构验证不等于 CK3 实机验收**：新基因的人像组绑定仍在实机排查，崩溃版本保留作为诊断现场，不应作为可用模组安装。最终运行证据另记录在交付的运行报告中。
+
+### 复用原版 BS 接口的可选试验
+
+`build_ck3_mod.py --reuse-vanilla-body-asset <原版 female_body.asset>` 会先只读核对原版合同，然后仅在 UMA 默认身体中复用以下名称。目标仍指向 UMA 真实完整端点；原版身体 asset 不随本模式覆盖。
+
+| UMA 完整组合 | 原版 BS ID | 原版 attribute |
+| --- | --- | --- |
+| `height_1__shape_0__bust_1` | `female_bs_body_neutral` | `bs_body_seated` |
+| `height_1__shape_0__bust_2` | `female_bs_body_breast_size_max` | `bs_body_breast_size_max` |
+| `height_1__shape_1__bust_0` | `female_bs_body_breast_size_min` | `bs_body_breast_size_min` |
+
+再加 `--reuse-vanilla-gene-file <原版 01_genes_morph.txt>` 会在 `morph_genes` 的 UMA 组内使用 `gene_bs_bust`，替代本工具的 `gene_uma_body_combinations`。原版全部 11 个模板名和 index 从实际文件读取并保留：`bust_clothes` 对应 Basis，`bust_clothes_light` 对应完整平胸组合，`bust_default` 对应完整胸型 2；其余八个原版模板在 UMA 组内确定映射为 Basis。默认 ethnicity 选择 `bust_default`。所有模板都是完整端点的互斥选择，未复制原版曲线/年龄/服装控制语义，未覆盖 human 基因文件。
+
+这两个模式已实际构建并在 CK3 1.20.0.3 的独立 profile 中测试，均仍发生 `C0000005`。属性查找、错误人像类型和非零默认值报错均为零。只复用 BS key 时，新增 `gene_uma_body_combinations` 缺失 DNA 记录为 445 条；同时复用原版 gene 时，记录变为 `gene_bs_bust` 445 条，而原版 DNA 本身已有此字段，因此仍需定位肖像组/DNA 解析。不能把复用接口称为已解决崩溃。
+
+原版 `gene_bs_bust` 和 `gene_age` 也会控制部分同名属性；当前 UMA 模板内部互斥已验证，最终运行权重是否受其他控制入口影响仍未验收。复用模式的完整合同保存在 `validation.json` 中。
+
+### 四组肖像类型与年龄边界
+
+根据用户指出的载入要求，当前 builder 完整定义 `uma_male`、`uma_female`、`uma_boy`、`uma_girl`；每个形态基因模板也必须有全部四个对应分支。`uma_girl = uma_female`、`uma_boy = uma_male` 保留原版常用的儿童/成年继承方式，不能只定义成年两组。
+
+新增必需参数 `--portrait-reference` 指向实际原版 `00_human_types.txt`。程序逐字段复制原版 `sex`、`minimum_age` 与 `maximum_age`，本机原版成年 `minimum_age=18`、儿童 `maximum_age=18`，保持边界和原值不变，不改成其他数值或重新解释包含关系。女童使用 UMA 头部与身体，男童使用原版男童身体；原有头部挂接关系保留。
+
+`portrait_type_contract` 记录参考文件 SHA-256、四组模型与原版年龄字段，静态校验会拒绝年龄字段变动或基因分支不完整。本次修订恢复全部 BS、原材质和资产库重新实机测试；此前未包含儿童两组的失败试验仍保留为历史诊断证据，不能当作四组完整版本的运行结果。
+
+四组版本已在 CK3 1.20.0.3 实际进入 1066 玛蒂尔达地图，日志确认对 7757 应用 `uma_ethnicity`，本轮未复现此前的启动闪退。实机截图中完整 BS 版本的紫色泳装躯干已显示；头部仍缺失、皮肤呈黑色，全部形态端点切换也尚未运行验收。跨组属性查找、旧 DNA 警告仍有记录，不能把“能进入游戏”扩展为完整视觉/基因兼容验收。年龄边界仍逐字段等于原版 18。

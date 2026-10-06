@@ -52,7 +52,7 @@ def main():
     if config.get('character_db'):
         from character_types import read_database,resolve_characters,make_body_type_groups
         resolution=json.loads((out/'character-body-profiles.json').read_text(encoding='utf8'))
-        current=read_database(config['character_db'],normalized.get('characters',[]))
+        current=read_database(config['character_db'],[str(r['id']) for r in resolution['metadata']['characters']])
         assert current==resolution['metadata'],'Character database parameters changed since export'
         assert resolve_characters(src,current,resolution['base_costume'])==resolution
         if config.get('body_type_morphs'):
