@@ -19,6 +19,12 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import sys
+try:
+    from body_profiles import body_profile, profiles_compatible
+except ModuleNotFoundError:
+    sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'HeadlessExporter'))
+    from body_profiles import body_profile, profiles_compatible
 
 
 APPAREL = frozenset(("clothing", "footwear", "headwear"))
@@ -211,9 +217,10 @@ def index_manifest(manifest_path, family_overrides=None):
         source = job.get("source", data.get("source", ""))
         family = overrides.get(job["name"], overrides.get(source, source))
         explicit = job["name"] in overrides or source in overrides
+        profile=body_profile(source,job.get('kind',data.get('source_kind')))
         entry = {"name": job["name"], "character_id": job.get("character_id"),
                  "source": source, "snapshot": str(snapshot_path.resolve()), "kind": job.get("kind"),
-                 "variant": data.get("variant"), "family": family,
+                 "variant": data.get("variant"), "family": family,"body_profile":profile,
                  "family_evidence": "explicit_declaration" if explicit else "exact_source_asset",
                  "categories": job.get("categories", []), "empty_apparel": job.get("empty_apparel", []),
                  "records": []}
@@ -240,13 +247,12 @@ def index_manifest(manifest_path, family_overrides=None):
                 if category in ANATOMICAL and not explicit:
                     record_family = "anatomical:" + category
                     family_evidence = "source_anatomical_category"
-                generic = re.search(r"bdy(000[0-9])_([0-9]+)_", source)
-                if generic and job.get("character_id") == "shared" and not explicit:
-                    record_family = "generic_body_dimensions:" + generic.group(0).rstrip("_")
-                    family_evidence = "generic_source_body_and_costume_identity_dimensions_vary"
+                if profile and not explicit:
+                    record_family = "generic_body_profile:" + profile['geometry_key']
+                    family_evidence = "exact_generic_costume_and_body_dimensions_including_bust"
                 record = {"id": record_id, "job": job["name"], "mesh_index": mesh_index,
                           "mesh_name": mesh.get("name"), "category": category,
-                          "character_id": job.get("character_id"), "family": record_family,
+                          "character_id": job.get("character_id"), "family": record_family,"body_profile":profile,
                           "family_evidence": family_evidence,
                           "active": mesh.get("active", True), "source": source,
                           "is_apparel": category in APPAREL,
@@ -294,10 +300,15 @@ def index_manifest(manifest_path, family_overrides=None):
                     continue
                 compatible = mapping is not None
                 same_family = base["family"] == target["family"]
+                same_profile=profiles_compatible(base['body_profile'],target['body_profile'])
                 pair = {"base": base["id"], "target": target["id"], "category": category,
                         "topology_compatible": compatible, "reason": reason,
                         "same_confirmed_family": same_family,
-                        "shape_key_eligible": compatible and same_family,
+                        "shape_key_eligible": compatible and same_family and same_profile,
+                        "same_body_profile":same_profile,
+                        "base_bust":base['body_profile']['bust'] if base['body_profile'] else None,
+                        "target_bust":target['body_profile']['bust'] if target['body_profile'] else None,
+                        "eligibility_rejection":'body_profile_mismatch' if not same_profile else None,
                         "cross_character": base["character_id"] != target["character_id"]}
                 if compatible:
                     pair["mapping_sha256"] = _digest(mapping)
@@ -312,7 +323,7 @@ def index_manifest(manifest_path, family_overrides=None):
                     pair["uv_tolerance"] = 0.0
                     if base.get("virtual_subset"):
                         pair["base_to_target_mapping"] = mapping
-                    if same_family:
+                    if same_family and same_profile:
                         parent[find(target["id"])] = find(base["id"])
                 result["topology_pairs"].append(pair)
     groups = defaultdict(list)

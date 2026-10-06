@@ -11,8 +11,10 @@ def main():
     out=Path(sys.argv[1]).resolve()
     verification=json.loads((out/'verification.json').read_text(encoding='utf8'))
     if verification.get('passed') is not True:raise SystemExit('Refusing to package an unverified model export')
-    program=out.parent/'UmaViewer-PDX-Blender42-Tools.zip'
-    assets=out.parent/'UmaViewer-PDX-Blender42-Models.zip'
+    prefix=sys.argv[2] if len(sys.argv)>2 else 'UmaViewer-PDX-Blender42'
+    if Path(prefix).name!=prefix:raise ValueError('Package prefix must be a filename, not a path')
+    program=out.parent/(prefix+'-Tools.zip')
+    assets=out.parent/(prefix+'-Models.zip')
     core=HERE/'uma_blender_import.py'
     if not core.exists():core=HERE.parents[1]/'Assets/StreamingAssets/Blender/uma_blender_import.py'
     with zipfile.ZipFile(program,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
@@ -21,6 +23,9 @@ def main():
                 archive.write(file,'PDXExporter/'+file.name)
         archive.write(core,'PDXExporter/uma_blender_import.py')
         headless=HERE.parent/'HeadlessExporter'
+        profile_module=HERE/'body_profiles.py'
+        if not profile_module.exists():profile_module=headless/'body_profiles.py'
+        if 'PDXExporter/body_profiles.py' not in archive.namelist():archive.write(profile_module,'PDXExporter/body_profiles.py')
         if headless.is_dir():
             for file in sorted(headless.iterdir()):
                 if file.is_file() and file.suffix in ('.py','.md','.cmd','.txt'):

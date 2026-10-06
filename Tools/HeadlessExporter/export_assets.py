@@ -17,6 +17,7 @@ import UnityPy
 from UnityPy.helpers.MeshHelper import MeshHandler
 from math3d import IDENTITY, components, inverse, multiply, normal, transform, trs, unity_matrix, vec
 from segmentation import classify, hair_reference
+from body_profiles import body_profile, select_body_bases
 
 HERE = Path(__file__).resolve().parent
 PREFAB = re.compile(r"(?:^|/)3d/chara/(head|body|tail)/([^/]+)/pfb_([^/]+)$")
@@ -372,7 +373,7 @@ def main():
             write_json(path,data)
             categories = sorted({f["category"] for mesh in data["meshes"] for f in mesh["faces"]})
             jobs.append(dict(name=data["name"],snapshot=path.relative_to(output).as_posix(),character_id=character,source=asset,
-                             kind=kind,categories=categories,skin_palette=palette,classification="heuristic" if kind == "body" and palette and args.skin_mode == "auto" else "source_renderer_material"))
+                             kind=kind,body_profile=body_profile(asset,kind),categories=categories,skin_palette=palette,classification="heuristic" if kind == "body" and palette and args.skin_mode == "auto" else "source_renderer_material"))
             print("Decoded",data["name"],categories,flush=True)
     references = {}
     for job in jobs:
@@ -416,24 +417,7 @@ def main():
             data["attachment"] = dict(body_source=target["source"],anchor=anchor,matrix=attachment)
             job["attachment"] = data["attachment"]
             write_json(path,data)
-    body_bases=[]
-    if args.body_base_variant!="none":
-        for character in sorted({j["character_id"] for j in jobs if j["kind"] == "body"}):
-            candidates=[]
-            for job in jobs:
-                if job["kind"]!="body" or job["character_id"]!=character: continue
-                data=json.loads((output/job["snapshot"]).read_text(encoding="utf8"))
-                total=sum(len(f["triangles"])//3 for m in data["meshes"] for f in m["faces"])
-                skin=sum(len(f["triangles"])//3 for m in data["meshes"] for f in m["faces"] if f["category"]=="body_skin")
-                if args.body_base_variant=="auto" and skin:
-                    candidates.append((skin/max(total,1),job))
-                elif args.body_base_variant==data["variant"]: candidates.append((1.,job))
-            if candidates:
-                candidates.sort(key=lambda item:(item[0],item[1]["name"]),reverse=True)
-                score,job=candidates[0]
-                body_bases.append(dict(name=job["name"],source=job["source"],character_id=character,selection=args.body_base_variant,
-                                       skin_triangle_ratio=score if args.body_base_variant=="auto" else None,
-                                       note="Complete original outfit retained; no missing body surfaces reconstructed"))
+    body_bases=select_body_bases(jobs,lambda job:json.loads((output/job['snapshot']).read_text(encoding='utf8')),args.body_base_variant)
     manifest = dict(version=1,input=str(source),unitypy_version=UnityPy.__version__,skin_mode=args.skin_mode,skin_tolerance=args.skin_tolerance,body_bases=body_bases,
                     segmentation="broad_apparel_v2",generic_skin=args.generic_skin,
                     temporary_directory=".temp",

@@ -177,16 +177,23 @@ def main():
             bpy.context.scene['uma_mesh_policy']=config['mesh_policy']
             bpy.context.scene['uma_source_snapshot']=str(src.parent/job['snapshot'])
             bpy.context.scene['uma_category']=category
+            bpy.context.scene['uma_body_profile']=json.dumps(job.get('body_profile'),sort_keys=True)
             bpy.context.scene['uma_reference_skeleton']=reference
             bpy.ops.file.pack_all();bpy.context.preferences.filepaths.save_version=0
             bpy.ops.wm.save_as_mainfile(filepath=str(blend))
             write(directory/(stem+'.rig.json'),report)
             item=dict(name=stem,job=job['name'],character_id=data['character_id'],variant=data['variant'],kind=job['kind'],category=category,
+                      body_profile=job.get('body_profile'),
                       blend=blend.relative_to(out).as_posix(),mesh=mesh.relative_to(out).as_posix(),
                       source_snapshot=job['snapshot'],objects=[dict(name=o.name,renderer=o['uma_source_renderer'],geometry_sha256=before[o.name],vertices=len(o.data.vertices),triangles=len(o.data.polygons)) for o in objects],
                       binary_checks=checks,rig_report=(directory/(stem+'.rig.json')).relative_to(out).as_posix(),seconds=round(time.monotonic()-start,3))
             results.append(item);write(out/'export-manifest.json',dict(blender=bpy.app.version_string,plugin_version=io_pdx_mesh.IO_PDX_INFO['version'],mesh_policy=config['mesh_policy'],components=results,morph_groups=[]))
             print('PDX_COMPONENT '+stem,flush=True)
+    bases=[]
+    for base in manifest.get('body_bases',[]):
+        item=next((r for r in results if r['job']==base['name'] and r['category']=='body_base'),None)
+        if item:bases.append(dict(base,blend=item['blend'],mesh=item['mesh']))
+    write(out/'body-bases.json',dict(policy='Independent base per owner/bust; no cross-profile partition or morph reuse',bases=bases))
     # Apparel grouping is driven by verified connectivity/UVs; never force a
     # different silhouette or costume onto an unrelated vertex topology.
     build_morph_groups(config,results,pdx,pdx_data)

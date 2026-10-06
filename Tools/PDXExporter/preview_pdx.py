@@ -43,13 +43,12 @@ def main():
                 rig=next(m.object for m in obj.modifiers if m.type=='ARMATURE')
                 if rig.name not in bpy.context.scene.objects:bpy.context.scene.collection.objects.link(rig)
         frame(objects,dest/('chara'+cid+'_head.png'))
-    swim=next(g for g in manifest['morph_groups'] if g['category']=='whole_mesh' and 'bdy0004' in g['base_job'])
-    for value in (0,1):
-        bpy.ops.wm.open_mainfile(filepath=str(out/swim['blend']))
+    bases=json.loads((out/'body-bases.json').read_text(encoding='utf8'))['bases']
+    for base in bases:
+        if not base.get('body_profile') or base['body_profile']['costume_id']!='0004':continue
+        bpy.ops.wm.open_mainfile(filepath=str(out/base['blend']))
         obj=next(o for o in bpy.data.objects if o.type=='MESH')
-        obj.data.shape_keys.key_blocks[swim['targets'][0]['key']].value=value
-        bpy.context.view_layer.update()
-        frame([obj],dest/('swim_morph_'+str(value)+'.png'))
+        frame([obj],dest/('swim_bust_'+base['bust']+'.png'))
     print('PDX_PREVIEWS_COMPLETE',flush=True)
 
 if __name__=='__main__':main()

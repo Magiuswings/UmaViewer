@@ -12,7 +12,7 @@ from mathutils import Matrix,Vector
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE))
 
-def check_source(obj,source,core):
+def check_source(obj,source,core,category):
     attribute=obj.data.attributes['uma_source_vertex']
     ids=[item.value for item in attribute.data]
     positions=[core.vec(source['vertices'][i]) for i in ids]
@@ -21,6 +21,11 @@ def check_source(obj,source,core):
     err=max(((v.co-p).length for v,p in zip(obj.data.vertices,positions)),default=0)
     assert err<1e-6,('Source geometry changed',obj.name,err)
     assert list(obj.matrix_world)==list(Matrix.Identity(4)),('Source transform changed',obj.name)
+    def cycle(t):return min(tuple(t[i:]+t[:i]) for i in range(len(t)))
+    expected=Counter(cycle(list(reversed(f['triangles'][i:i+3]))) for f in source['faces']
+                     if category=='body_base' or f['category']==category for i in range(0,len(f['triangles']),3))
+    actual=Counter(cycle([ids[i] for i in poly.vertices]) for poly in obj.data.polygons)
+    assert actual==expected,('Source category partition changed',obj.name,category)
     for layer,uv in zip(obj.data.uv_layers,source['uvs']):
         for loop in obj.data.loops:
             expected=uv['values'][ids[loop.vertex_index]]
@@ -72,7 +77,7 @@ def main():
         max_error=0
         for obj in objects:
             original=next(m for m in source['meshes'] if m['name']==obj['uma_source_renderer'])
-            max_error=max(max_error,check_source(obj,original,core))
+            max_error=max(max_error,check_source(obj,original,core,item['category']))
             for mat in obj.data.materials:
                 assert mat['shader'] in set(SHADERS.values())
                 if item['category']!='body_base':assert mat['shader']==SHADERS[item['category']]
@@ -140,6 +145,10 @@ def main():
         base_meshes=parsed.find('object')[0].findall('mesh')
         base_skeleton=parsed.find('object')[0].find('skeleton')
         for target in group['targets']:
+            base_item=next(c for c in manifest['components'] if c['job']==group['base_job'] and c['category']==('body_base' if group['category']=='whole_mesh' else group['category']))
+            target_item=next(c for c in manifest['components'] if c['blend']==target['source_component'])
+            from body_profiles import profiles_compatible
+            assert profiles_compatible(base_item.get('body_profile'),target_item.get('body_profile')),'Cross-bust morph was exported'
             key=base.data.shape_keys.key_blocks[target['key']]
             assert key.value==0
             binary=pdx_data.read_meshfile(str(out/target['mesh']))

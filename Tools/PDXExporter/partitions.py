@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from morphs import topology_mapping
+from body_profiles import body_profile, profiles_compatible, select_body_bases
 
 def normalize_manifest(source,output,index):
     source=Path(source);output=Path(output)
@@ -13,14 +14,20 @@ def normalize_manifest(source,output,index):
     jobs={j['name']:j for j in manifest['jobs']}
     data={j['name']:json.loads((source.parent/j['snapshot']).read_text(encoding='utf8')) for j in manifest['jobs']}
     records={r['id']:r for r in index['records']}
-    changes=[]
+    changes=[];blocked=[]
     for group in index['compatible_groups']:
         base=records[group['base']]
-        if base['category']!='whole_mesh' or not base['family'].startswith('generic_body_dimensions:'):continue
+        if base['category']!='whole_mesh':continue
+        base_profile=body_profile(jobs[base['job']]['source'],jobs[base['job']]['kind'])
+        if not base_profile:continue
         bm=data[base['job']]['meshes'][base['mesh_index']]
         labels={tuple(sorted(f['triangles'][i:i+3])):f['category'] for f in bm['faces'] for i in range(0,len(f['triangles']),3)}
         for tid in group['targets']:
             target=records[tid]
+            target_profile=body_profile(jobs[target['job']]['source'],jobs[target['job']]['kind'])
+            if not profiles_compatible(base_profile,target_profile):
+                blocked.append(dict(base_job=base['job'],target_job=target['job'],base_profile=base_profile,target_profile=target_profile,reason='body_profile_mismatch; keep target original skin/clothing classification'))
+                continue
             tm=data[target['job']]['meshes'][target['mesh_index']]
             mapping,reason=topology_mapping(bm,tm)
             if mapping is None:raise ValueError('Indexed family no longer matches: '+reason)
@@ -42,6 +49,7 @@ def normalize_manifest(source,output,index):
             assert {k:v for k,v in tm.items() if k!='faces'}==untouched
     for job in manifest['jobs']:
         d=data[job['name']]
+        job['body_profile']=body_profile(job['source'],job['kind'])
         job['categories']=sorted({f['category'] for m in d['meshes'] for f in m['faces'] if f['triangles']})
         job['category_triangles']={c:sum(len(f['triangles'])//3 for m in d['meshes'] for f in m['faces'] if f['category']==c) for c in job['categories']}
         (output/job['snapshot']).write_text(json.dumps(d,ensure_ascii=False,separators=(',',':')),encoding='utf8')
@@ -50,10 +58,13 @@ def normalize_manifest(source,output,index):
             dst=output/manifest['resources']/file.relative_to(source.parent/manifest['resources'])
             dst.parent.mkdir(parents=True,exist_ok=True)
             if not dst.exists():os.link(file,dst)
-    manifest['partition_policy']='For confirmed exact-topology generic costume families, reuse base material regions; all source coordinates/topology/UVs unchanged'
+    if manifest.get('body_bases'):
+        manifest['body_bases']=select_body_bases(manifest['jobs'],lambda job:data[job['name']],manifest['body_bases'][0].get('selection','auto'))
+    manifest['partition_policy']='Reuse partitions only within the same complete generic body profile including bust; preserve other bust profiles and all source geometry'
     manifest['source_manifest']=str(source.resolve())
     manifest['partition_changes']=changes
+    manifest['blocked_partition_transfers']=blocked
     path=output/'manifest.json';path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf8')
     (output.parent/'partition-changes.json').write_text(json.dumps(dict(changed_triangles=len(changes),changes=changes,
-                source=str(source.resolve()),policy=manifest['partition_policy'],source_preserved=True),ensure_ascii=False,indent=2),encoding='utf8')
+                blocked_transfers=blocked,source=str(source.resolve()),policy=manifest['partition_policy'],source_preserved=True),ensure_ascii=False,indent=2),encoding='utf8')
     return path
