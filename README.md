@@ -10,6 +10,8 @@ The project currently pins **Unity 2022.3.62f3** in `ProjectSettings/ProjectVers
 
 **Headless named-asset export:** [Tools/HeadlessExporter](Tools/HeadlessExporter/README.md) reads a `Loaded Assets -> Copy all` ZIP/directory directly with Python, then runs Blender in the background. It requires no Unity Editor or viewer UI. The complete path has been tested on a real SpecialWeek asset package, exporting independent parts and original-reference models with provenance filenames and packed textures. Body skin/garment segmentation is explicitly marked as heuristic.
 
+**Blender 4.2 / CK3 PDX workflow:** [Tools/PDXExporter](Tools/PDXExporter/README.md) fits original CK3 bone names, hierarchy and orientations to the source bind points while preserving mesh coordinates, assigns portrait shaders, records area-weighted skin colors and exports actual IO PDX Mesh morph files plus editable Blender Shape Keys. Costume reuse requires verified source-family identity, directed topology and every UV layer; incompatible character-specific clothes remain independently indexed. The supplied 1001/1003 packages were reparsed and verified in Blender 4.2.23, with 96 PDX components and 15 morph groups verified through independent reopen and PDX roundtrip checks. Game animation/runtime acceptance remains separate.
+
 ⚠️ If you see **"Failed to load il2cpp"** or the app cannot start on Windows, it may be blocked by **Windows Smart App Control**.
 
  If it fails, turn off Smart App Control:

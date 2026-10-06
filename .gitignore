@@ -76,3 +76,6 @@ Thumbs.db
 /Tools/HeadlessExporter/__pycache__/
 /Tools/HeadlessExporter/output/
 /Tools/HeadlessExporter/inspection/
+
+# PDX exporter local Python caches
+/Tools/PDXExporter/__pycache__/
