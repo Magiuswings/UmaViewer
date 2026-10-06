@@ -274,7 +274,20 @@ class Extractor:
                 image = None
                 if main and source_kind == "body" and self.args.skin_mode == "auto" and palette:
                     from PIL import Image
-                    image = Image.open(self.resources/main["texture"]).convert("RGBA")
+                    reference_texture=main['texture']
+                    fields=identifier[3:].split('_')
+                    if character=='shared' and len(fields)==6 and fields[0] in ('0002','0003','0004'):
+                        # Skin color must not alter anatomical region classification.
+                        # Use the same costume/bust UV atlas at the reference skin,
+                        # while retaining the table-selected diffuse for rendering.
+                        name=Path(main['texture']).stem.split('__')[0].split('_')
+                        name[-3]=self.args.generic_skin_reference
+                        reference_name='_'.join(name)
+                        reference=next((o for o in package.objects if o.type.name=='Texture2D' and package.read(o).m_Name==reference_name),None)
+                        if reference is not None:reference_texture=self.texture(reference)
+                        else:self.warnings.append('Generic skin classification reference missing: '+reference_name)
+                    stats['skin_classification_reference_texture']=reference_texture
+                    image = Image.open(self.resources/reference_texture).convert("RGBA")
                 for triangle in triangles:
                     triangle = tuple(v+base_vertex for v in triangle)
                     stats["source_triangles"] += 1
@@ -327,6 +340,7 @@ def main():
     parser.add_argument("--native-coordinates",action="store_true",help="Keep native prefab origins instead of aligning head/tail to available body bones")
     parser.add_argument("--body-base-variant",default="auto",help="Keep a complete source outfit as the body base: auto (most skin triangles), none, or variant such as 30")
     parser.add_argument("--generic-skin",default="0",help="Source generic-costume skin texture index; default 0, no character database inference")
+    parser.add_argument('--generic-skin-reference',default='0',help='Same-costume/bust diffuse skin index used only for stable skin-region classification')
     args = parser.parse_args()
     args.names = dict(n.split("=",1) for n in args.name)
     source,output = args.input.resolve(),args.output.resolve()
@@ -420,6 +434,7 @@ def main():
     body_bases=select_body_bases(jobs,lambda job:json.loads((output/job['snapshot']).read_text(encoding='utf8')),args.body_base_variant)
     manifest = dict(version=1,input=str(source),unitypy_version=UnityPy.__version__,skin_mode=args.skin_mode,skin_tolerance=args.skin_tolerance,body_bases=body_bases,
                     segmentation="broad_apparel_v2",generic_skin=args.generic_skin,
+                    generic_skin_reference=args.generic_skin_reference,
                     temporary_directory=".temp",
                     characters=character_ids,input_sha256=hashlib.sha256(source.read_bytes()).hexdigest() if source.is_file() else None,
                     jobs=jobs,assets=package.inventory,textures=list(extractor.textures.values()),

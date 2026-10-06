@@ -50,6 +50,21 @@ python run_pdx.py --manifest E:\combined-inputs\manifest.json --output E:\PDX-ou
 
 通用身体的基础模型按胸型分别制作。`body_profiles.py` 从 prefab 解析服装、子类型、身体设置、高度、体型和胸型，完整参数进入 `geometry_key`。`partitions.py` 仅在相同完整身体参数且整体拓扑／UV 对应时复用分类区域；不同胸型即使几何拓扑一致也不复用分类、不生成身体或服装 morph。`--families` 声明也不能绕过此限制，旧版缓存组再次按真实源字段检查。胸型未知的角色专属身体按角色独立保留，不猜胸型。
 
+显式的 **整体体型 BS 模式** 是独立许可：`--character-db <master.mdb> --body-type-morphs` 先只读查询实际 `chara_data`，按角色的 `height/shape/bust` 选通用身体，并核对 `skin` 贴图。在相同通用衣装内，只有整体有向拓扑、全部 UV、骨架父链、语义权重与绑定矩阵通过后，才能把不同体型做成整体 BS。该模式不将胸型 1 的皮肤／服装分区覆盖到胸型 2，也不生成独立衣物跨胸型键；普通模式的隔离规则保持有效。
+
+本次用户提供的数据库确认：1001 是 `height=1, shape=0, bust=2, skin=1, scale=158`，1003 是 `1,0,1,1,150`。共享体型工程用胸型 1 作 Basis，仅增加 `height_1__shape_0__bust_2` 键。角色在 `character-body-bindings.json` 中引用相应类型，不生成角色 ID 命名的躯干键。此 JSON 同时记录 `diffuse_overrides`：不同胸型的 diffuse 像素有差异，几何键不能替代材质切换。
+
+原仓库另以 `scale/160.7529` 对整个角色根节点缩放；该数值只保存为元数据，导出时不缩放或平移 mesh。角色数据库的有限参数只证明通用衣装的模型选择路径，不能据此把含专属衣服的 `bdy1001_30`／`bdy1003_90` 等网格视为通用身体的完全等价模型。它们保留作独立服装来源。
+
+例如本次两角色都使用 skin 1，先从已命名原始资产重新解析：
+
+```powershell
+python ..\HeadlessExporter\export_assets.py E:\named-assets.zip --output E:\skin1-inputs --generic-skin 1
+python run_pdx.py --manifest E:\skin1-inputs\manifest.json --output E:\PDX-body-types --blender "C:\path\blender-4.2\blender.exe" --pdx-plugin E:\vendor\io_pdx_mesh --body-reference E:\references\female_body.mesh --head-reference E:\references\female_head.mesh --character-db E:\master.mdb --body-type-morphs
+```
+
+若缺少匹配参数的通用模型／肤色贴图，模式报告不匹配并拒绝生成体型组，不猜字段。`character-body-profiles.json` 保存实际数据库哈希、查询参数与对应资源；`body-type-validation.json` 保存拓扑、权重、骨架和容差验证。原始数据库不修改、不随公开程序包分发。
+
 `body-bases.json` 列出每套基底的 `bust`、完整参数、原始来源以及 `.blend`／`.mesh` 路径。本次 `bdy0004_00_00_1_0_1` 与 `..._2` 分别作为胸型 1、2 的基底；保留各自皮肤 4009／4008 面、服装 1463／1464 面，不再统一此前的一个边界三角面。本轮 `partition-changes.json` 的变化面数为 0。当前皮肤拆分使用每个模型自身 UV 贴图，未使用小胸基底表面去扣除其他身体。
 
 每个合格家族选择确定顺序中的第一个来源为基础，保留原 Basis 和原 Renderer 边界。`morphs/<group>/editable.blend` 含 Basis 与其余来源的 Shape Keys。PDX IO 的 **`as_blendshape=True`** 用于实际导出 `base.mesh` 和每个目标 `.mesh`；它不会自动把 Blender KeyBlocks 写成一个包含所有形态的 PDX 文件，所以工具显式生成每个完整目标。目标坐标逐点来自真实源变体，没有人工拟合。PDX 的 UV 分裂可能让二进制顶点数大于 Blender 原始顶点数，基础与每个目标的二进制顶点顺序和面连接仍必须对应。
@@ -65,3 +80,5 @@ python run_pdx.py --manifest E:\combined-inputs\manifest.json --output E:\PDX-ou
 2026-10-06 的原始两个输入包此前重新解析为 57 + 116 个 Blender 4.2 工程，分别完成重开验证；合并后 24 个任务，10 个重复任务去重。胸型修订又实际合并 485 个原始 bundle，重新解析 24 个任务，零错误，确认同时选择两套胸型基底，原网格、骨骼和材质精确不变。完整原始泳衣两个胸型均为 3,510 个顶点、5,472 面，源坐标最大差约 0.0091；相同拓扑不意味着可以跨胸型复用基底。
 
 胸型分离后的最终 96 个部件、96 次 PDX 插件回读、12 组形态和 47 个目标均通过独立验证。此前跨胸型的整身、皮肤和泳衣三个形态组已撤回，其余兼容组件保留。所有源类别的有向三角集合也与各自源模型核对；独立测试确认旧版统一分类的胸型 2 皮肤和服装会被此检查拒绝。角色专属宽衣物和裙子仍没有跨角色严格对应，保留独立模型及拒绝原因。当前没有 CK3 游戏内或原版动画的本轮运行验收。
+
+随后的实际数据库体型模式完成 **96 个部件、96 次 PDX 回读、13 组形态／48 个目标** 验证。其中只有一个身体类组，目标键只按体型命名，角色专用躯干键为 0。BS 端点对源模型和目标二进制的位置误差为 0；原始语义权重误差为 0，源绑定矩阵最大差 `2.566707e-6`，在 `1e-5` 浮点容差内。表中 173 个角色有 23 种 `(height,shape,bust)` 参数组合，当前素材只实际验证所提供的两个目标类型，其他组合不称为已完成模型验收。

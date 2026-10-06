@@ -49,6 +49,15 @@ def main():
     normalized=json.loads(src.read_text(encoding='utf8'))
     original_path=Path(config.get('source_manifest',config['manifest']))
     original=json.loads(original_path.read_text(encoding='utf8'))
+    if config.get('character_db'):
+        from character_types import read_database,resolve_characters,make_body_type_groups
+        resolution=json.loads((out/'character-body-profiles.json').read_text(encoding='utf8'))
+        current=read_database(config['character_db'],normalized.get('characters',[]))
+        assert current==resolution['metadata'],'Character database parameters changed since export'
+        assert resolve_characters(src,current,resolution['base_costume'])==resolution
+        if config.get('body_type_morphs'):
+            index=json.loads((out/'apparel-index.json').read_text(encoding='utf8'))
+            assert make_body_type_groups(src,index,resolution)==json.loads((out/'body-type-validation.json').read_text(encoding='utf8'))
     originals={j['name']:j for j in original['jobs']}
     for job in normalized['jobs']:
         a=json.loads((src.parent/job['snapshot']).read_text(encoding='utf8'))
@@ -148,7 +157,12 @@ def main():
             base_item=next(c for c in manifest['components'] if c['job']==group['base_job'] and c['category']==('body_base' if group['category']=='whole_mesh' else group['category']))
             target_item=next(c for c in manifest['components'] if c['blend']==target['source_component'])
             from body_profiles import profiles_compatible
-            assert profiles_compatible(base_item.get('body_profile'),target_item.get('body_profile')),'Cross-bust morph was exported'
+            if group.get('purpose')=='body_type':
+                validation=json.loads((out/'body-type-validation.json').read_text(encoding='utf8'))
+                check=next(c for c in validation['checks'] if c['base']==group['base_record'] and c['target'].startswith(target_item['job']+'::'))
+                assert check['passed'] and check['max_weight_error']<=1e-6 and check['max_bind_matrix_error']<=1e-5
+                assert target['key'].startswith('height_') and 'chara' not in target['key'],'Character-specific torso key was created'
+            else:assert profiles_compatible(base_item.get('body_profile'),target_item.get('body_profile')),'Cross-bust component morph was exported'
             key=base.data.shape_keys.key_blocks[target['key']]
             assert key.value==0
             binary=pdx_data.read_meshfile(str(out/target['mesh']))
@@ -178,6 +192,9 @@ def main():
             assert abs(max_key_delta-target['max_delta'])<1e-6
         morphs.append(dict(name=group['name'],keys=len(group['targets']),passed=True))
     assert len(reports)==len(manifest['components'])
+    if config.get('body_type_morphs'):
+        from character_types import verify_bindings
+        verify_bindings(out,manifest)
     (out/'verification.json').write_text(json.dumps(dict(passed=True,in_progress=False,blender=bpy.app.version_string,
           components=reports,roundtrips=roundtrips,morphs=morphs,limitations=['CK3 game/animation runtime not tested']),ensure_ascii=False,indent=2),encoding='utf8')
     print('PDX_ALL_VERIFIED components='+str(len(reports))+' morph_groups='+str(len(morphs)),flush=True)

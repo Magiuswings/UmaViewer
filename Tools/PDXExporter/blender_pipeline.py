@@ -193,6 +193,16 @@ def main():
     for base in manifest.get('body_bases',[]):
         item=next((r for r in results if r['job']==base['name'] and r['category']=='body_base'),None)
         if item:bases.append(dict(base,blend=item['blend'],mesh=item['mesh']))
+    if (out/'character-body-profiles.json').is_file():
+        actors=json.loads((out/'character-body-profiles.json').read_text(encoding='utf8'))['characters']
+        known={a['character_id']:a['parameters'] for a in actors}
+        for base in bases:
+            if base['character_id'] in known:
+                base['bust']=str(known[base['character_id']]['bust'])
+                base['base_group']='chara'+base['character_id']+'__bust_'+base['bust']
+                base['character_parameters']=known[base['character_id']]
+                base['role']='Original dedicated costume reference; canonical torso uses character-body-bindings.json'
+                base['bust_provenance']='chara_data.bust from provided master.mdb'
     write(out/'body-bases.json',dict(policy='Independent base per owner/bust; no cross-profile partition or morph reuse',bases=bases))
     # Apparel grouping is driven by verified connectivity/UVs; never force a
     # different silhouette or costume onto an unrelated vertex topology.
@@ -203,6 +213,7 @@ def build_morph_groups(config,results,pdx,pdx_data):
     from morphs import add_shape_key,make_blendshape_object
     index=json.loads((out/'apparel-index.json').read_text(encoding='utf8'))
     records={r['id']:r for r in index['records']}
+    resolution=json.loads((out/'character-body-profiles.json').read_text(encoding='utf8')) if (out/'character-body-profiles.json').is_file() else None
     lookup={(item['job'],item['category']):item for item in results}
     groups=[];rejected=[]
     def component(record):
@@ -221,7 +232,8 @@ def build_morph_groups(config,results,pdx,pdx_data):
         data=json.loads((source_root/item['source_snapshot']).read_text(encoding='utf8'))
         mesh=next(m for m in data['meshes'] if m['name']==description['renderer'])
         return {tuple(sorted(f['triangles'][i:i+3])):f['category'] for f in mesh['faces'] for i in range(0,len(f['triangles']),3)}
-    for indexed in index['compatible_groups']:
+    for indexed in index['compatible_groups']+index.get('body_type_groups',[]):
+        body_type_mode=indexed.get('body_type_mode',False)
         base_record=records[indexed['base']]
         if base_record.get('virtual_subset'):continue
         base_item,base_desc=component(base_record)
@@ -238,7 +250,7 @@ def build_morph_groups(config,results,pdx,pdx_data):
         bpy.context.scene.collection.objects.link(base)
         # An individual Renderer can form a morph even when another object
         # in the broad category has different topology. Keep that scope explicit.
-        group_name=base_item['name']+'__'+base_record['mesh_name']+'__morphs'
+        group_name=base_item['name']+'__'+base_record['mesh_name']+('__body_types' if body_type_mode else '__morphs')
         directory=out/'morphs'/group_name;directory.mkdir(parents=True,exist_ok=True)
         shape_name=base.data.name
         pdx.set_mesh_index(base.data,0)
@@ -259,7 +271,10 @@ def build_morph_groups(config,results,pdx,pdx_data):
             mapping,reason=topology_mapping(base,target)
             if mapping is None:
                 rejected.append(dict(base=base_record['id'],target=record['id'],reason=reason));continue
-            key_name='chara'+record['character_id']+'__'+item['variant']+'__'+record['mesh_name']
+            if body_type_mode:
+                from character_types import type_id
+                key_name=type_id(record['body_profile'])
+            else:key_name='chara'+record['character_id']+'__'+item['variant']+'__'+record['mesh_name']
             if base.data.shape_keys and key_name in base.data.shape_keys.key_blocks:
                 key_name+='__'+str(len(target_reports))
             key=add_shape_key(base,target,key_name)
@@ -295,6 +310,7 @@ def build_morph_groups(config,results,pdx,pdx_data):
                 if bcategory!=tcategory:changes.append(dict(base_source_triangle=list(bkey),target_source_triangle=list(tkey),base_category=bcategory,target_category=tcategory))
             target_reports.append(dict(key=key.name,source_job=item['job'],source_component=item['blend'],source_renderer=record['mesh_name'],
                                        mesh=target_path.relative_to(out).as_posix(),mapping_reason=reason,max_delta=delta,
+                                       body_profile=record.get('body_profile'),
                                        shape_preserves_source_coordinates=True,weights='Base rig/weights reused; target original weights remain in its component file',
                                        materials='Base material slots/textures retained; morph is geometry only',
                                        source_partition_changes=dict(count=len(changes),faces=changes,policy='Base shader classification retained; target original classification preserved in target component')))
@@ -313,10 +329,36 @@ def build_morph_groups(config,results,pdx,pdx_data):
         lines.append('}')
         (directory/'morph.asset').write_text('\n'.join(lines)+'\n',encoding='utf8')
         groups.append(dict(name=group_name,category=base_record['category'],renderer=base_record['mesh_name'],
+                           purpose='body_type' if body_type_mode else 'component',base_body_profile=base_record.get('body_profile'),
                            base_job=base_record['job'],base_record=base_record['id'],base_selection='First deterministic source in compatible family',
                            blend=blend.relative_to(out).as_posix(),base_mesh=base_path.relative_to(out).as_posix(),targets=target_reports,
                            scope=base['uma_morph_scope'],source_coordinates_unchanged=True))
         print('PDX_MORPH_GROUP '+group_name+' targets='+str(len(target_reports)),flush=True)
+    if resolution:
+        assignments=[]
+        for actor in resolution['characters']:
+            row=dict(actor)
+            item=next((r for r in results if r['job']==actor.get('selected_job') and r['category']=='body_base'),None)
+            if item:
+                row.update(template_blend=item['blend'],template_mesh=item['mesh'])
+                template=json.loads((source_root/item['source_snapshot']).read_text(encoding='utf8'))
+                overrides=[]
+                for material in template['materials']:
+                    main=next((p for p in material['properties'] if p['name']=='_MainTex' and p.get('texture')),None)
+                    if main:
+                        texture_key=json.dumps([main['texture'],main.get('scale',[1,1]),main.get('offset',[0,0])],separators=(',',':'))
+                        overrides.append(dict(source_material=material['name'],diffuse='textures/'+config['diffuse'][texture_key]['dds']))
+                row['diffuse_overrides']=overrides
+            for group in groups:
+                if group['purpose']!='body_type':continue
+                if actor.get('selected_job')==group['base_job']:
+                    row.update(body_type_blend=group['blend'],body_type_key='Basis',body_type_key_value=0,per_character_torso_key=False)
+                else:
+                    target=next((t for t in group['targets'] if t['source_job']==actor.get('selected_job')),None)
+                    if target:row.update(body_type_blend=group['blend'],body_type_key=target['key'],body_type_key_value=1,per_character_torso_key=False)
+            assignments.append(row)
+        write(out/'character-body-bindings.json',dict(characters=assignments,
+                    policy='Characters reference table-selected body types and diffuse overrides for bust/skin; physical height is separately recorded root scale; no vertex scaling'))
     report=json.loads((out/'export-manifest.json').read_text(encoding='utf8'))
     report['morph_groups']=groups;report['morph_rejections']=rejected
     report['cross_character_morph_policy']='Require verified directed connectivity and all UV layers; base geometry never warped'

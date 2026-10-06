@@ -49,6 +49,22 @@ def main():
         bpy.ops.wm.open_mainfile(filepath=str(out/base['blend']))
         obj=next(o for o in bpy.data.objects if o.type=='MESH')
         frame([obj],dest/('swim_bust_'+base['bust']+'.png'))
+    if (out/'character-body-bindings.json').is_file():
+        actors=json.loads((out/'character-body-bindings.json').read_text(encoding='utf8'))['characters']
+        for actor in actors:
+            if not actor.get('body_type_blend'):continue
+            bpy.ops.wm.open_mainfile(filepath=str(out/actor['body_type_blend']))
+            obj=next(o for o in bpy.data.objects if o.type=='MESH')
+            for key in obj.data.shape_keys.key_blocks:key.value=0
+            if actor['body_type_key']!='Basis':obj.data.shape_keys.key_blocks[actor['body_type_key']].value=actor['body_type_key_value']
+            for mat in obj.data.materials:
+                original=json.loads(mat['uma_original_material'])
+                override=next((o for o in actor['diffuse_overrides'] if o['source_material']==original['name']),None)
+                if override:
+                    bsdf=mat.node_tree.nodes.get('Principled BSDF')
+                    bsdf.inputs['Base Color'].links[0].from_node.image=bpy.data.images.load(str(out/override['diffuse']),check_existing=True)
+            bpy.context.view_layer.update()
+            frame([obj],dest/('body_type_'+actor['body_type']+'.png'))
     print('PDX_PREVIEWS_COMPLETE',flush=True)
 
 if __name__=='__main__':main()

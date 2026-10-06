@@ -25,11 +25,15 @@ def main():
     p.add_argument('--body-reference', type=Path, required=True)
     p.add_argument('--head-reference', type=Path, required=True)
     p.add_argument('--families', type=Path, help='Optional JSON: exact job name/source path -> confirmed costume family; topology checks still apply')
+    p.add_argument('--character-db',type=Path,help='Actual read-only master.mdb for character -> body profile selection')
+    p.add_argument('--base-costume',default='0004_00_00',help='Generic costume/subtype/setting used as body template')
+    p.add_argument('--body-type-morphs',action='store_true',help='Generate table-validated whole-body type keys, without character-specific torso keys')
     p.add_argument('--only', action='append', default=[], help='Optional category filter for development / partial export')
     p.add_argument('--job', action='append', default=[], help='Optional exact job name filter')
     p.add_argument('--skip-verify', action='store_true')
     p.add_argument('--morphs-only',action='store_true',help='Rebuild morph stage from existing component exports, then verify everything')
     args = p.parse_args()
+    if args.body_type_morphs and not args.character_db:p.error('--body-type-morphs requires --character-db')
     out = args.output.resolve()
     src = args.manifest.resolve()
     if out == src.parent or out.is_relative_to(src.parent):
@@ -94,10 +98,22 @@ def main():
                   reference_hashes={'body':sha(args.body_reference),'head':sha(args.head_reference)},
                   diffuse=diffuse,only=args.only,jobs=args.job,
                   morphs_only=args.morphs_only,
+                  character_db=str(args.character_db.resolve()) if args.character_db else None,
+                  body_type_morphs=args.body_type_morphs,
                   mesh_policy='Keep source local vertices, object transforms, UVs and topology; adapt bones to source',
                   version_required=[4,2])
     config_path.write_text(json.dumps(config,ensure_ascii=False,indent=2),encoding='utf8')
-    (out/'apparel-index.json').write_text(json.dumps(index_manifest(src,families),ensure_ascii=False,indent=2),encoding='utf8')
+    index=index_manifest(src,families)
+    if args.character_db:
+        from character_types import read_database,resolve_characters,make_body_type_groups
+        metadata=read_database(args.character_db,manifest.get('characters',[]))
+        resolution=resolve_characters(src,metadata,args.base_costume)
+        (out/'character-body-profiles.json').write_text(json.dumps(resolution,ensure_ascii=False,indent=2),encoding='utf8')
+        if args.body_type_morphs:
+            validation=make_body_type_groups(src,index,resolution)
+            index['body_type_groups']=validation['groups']
+            (out/'body-type-validation.json').write_text(json.dumps(validation,ensure_ascii=False,indent=2),encoding='utf8')
+    (out/'apparel-index.json').write_text(json.dumps(index,ensure_ascii=False,indent=2),encoding='utf8')
     for script, logfile in [('blender_pipeline.py','conversion.log')]+([] if args.skip_verify else [('verify_pdx.py','verification.log')]):
         cmd=[str(args.blender),'--background','--factory-startup','--python-exit-code','1','--python',str(HERE/script),'--',str(config_path)]
         print('Running '+script+'; log='+str(out/logfile),flush=True)

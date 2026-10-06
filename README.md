@@ -12,6 +12,8 @@ The project currently pins **Unity 2022.3.62f3** in `ProjectSettings/ProjectVers
 
 **Blender 4.2 / CK3 PDX workflow:** [Tools/PDXExporter](Tools/PDXExporter/README.md) fits original CK3 bone names, hierarchy and orientations to the source bind points while preserving mesh coordinates, assigns portrait shaders, records area-weighted skin colors and exports actual IO PDX Mesh morph files plus editable Blender Shape Keys. Generic body bases are selected independently per bust profile; different body dimensions cannot share partition or morph data, even when topology matches. Costume reuse requires verified source-family identity, directed topology and every UV layer. The supplied 1001/1003 packages were verified in Blender 4.2.23, with 96 PDX components and 12 morph groups in the current bust-separated delivery. Game animation/runtime acceptance remains separate.
 
+With `--character-db` and `--body-type-morphs`, a separate validated whole-body mode reads the actual character table and produces reusable **body-type keys instead of per-character torso keys**. It requires matching generic templates/skin textures, exact topology/UVs and matching source skin weights/skeleton within explicit float tolerances. Cross-profile skin/clothing classification remains isolated. The provided database and two character samples passed this mode, exporting one shared whole-body type group plus existing component groups: 96 components and 13 groups total. Character root scale and diffuse overrides are recorded separately from mesh geometry.
+
 ⚠️ If you see **"Failed to load il2cpp"** or the app cannot start on Windows, it may be blocked by **Windows Smart App Control**.
 
  If it fails, turn off Smart App Control:
