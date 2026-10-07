@@ -39,6 +39,7 @@ def main():
     source_gene_hashes={str(f.relative_to(src)):b.sha(f) for f in (src/'common/genes').rglob('*') if f.is_file()}
     head_asset=b.one(b.clausewitz((source_root/'uma_head.asset').read_text(encoding='utf-8-sig')),'pdxmesh')
     head_refs={b.one(head_asset,'file')}|{b.one(s,'type') for s in b.values(head_asset,'blend_shape')}|{b.one(s,'type') for s in b.values(head_asset,'animation')}
+    head_refs|={f.relative_to(source_root).as_posix() for f in source_root.rglob('*.anim')}
     body_anims={b.one(s,'type') for s in b.values(original_body,'animation')}
     animation_and_head_hashes={f:b.sha(source_root/f) for f in head_refs|body_anims}
     shutil.copytree(src,out)
