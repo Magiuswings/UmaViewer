@@ -141,3 +141,23 @@ python scale_body_probe.py --source E:\Uma-Combination-BS-Mod-four-types --outpu
 工具在新目录中统一缩放默认身体基底及两个完整 BS 目标：顶点、包围盒、包围球、逆绑定骨骼平移和静态动画平移都按精确 float32 的 `原值*105` 写入。法线、切线、UV、拓扑、权重、骨骼索引/父链/旋转、动画 quaternion/scale 原值不变。身体 asset 删除 scale 行，头部、四组/18岁边界及基因不变；其他资产库组件不属于本次缩放范围。
 
 本轮已实际进入玛蒂尔达地图并应用 `uma_ethnicity`，头部从此前缺失变为可见；皮肤黑色仍未修复，各 BS 端点切换和完整视觉仍未验收。该 105 倍替代旧 asset 的 100 倍设置，名义显示大小约为此前的 1.05 倍，未重复叠乘。
+
+## 完整皮肤代理底模
+
+`complete_body_skin.py` 接收一个或多个真实解码 manifest，按相同 `(height, shape, bust)` 匹配 0004 竞技泳装与 0009 露脐装的露肤覆盖。输出固定采用完整 0004 拓扑，保留原始顶点、全部 UV、骨骼、权重和形态。每面七个位置采样，默认最近皮肤距离不超过源单位 0.015 m、法线夹角余弦至少 0.5，至少五个采样命中才计入 0009 新增皮肤覆盖。它记录覆盖并集，不声称做了网格 Boolean 或精确解剖重建。
+
+所有剩余面直接使用竞技泳装的完整网格作为缺失皮肤代理，不按缺失比例跳过。最终全部面归为 `body_skin`，只保留一个 `portrait_skin` 材质，竞技泳装的独立材质槽为零。填补色从默认 `_MainTex` 原始 PNG 的露肤面做面积加权采样；0009 新增覆盖使用其对应皮肤 texel 的采样色。原始 diffuse 及其衣服导出保持不变，生成单独的完成版贴图。
+
+当前真实输入 `BSTest.zip` 加上此前提供的泳装/平胸解码数据，得到三套 3510 顶点、5472 面的完成底模：`height_1__shape_0__bust_1` 为 Basis，完整组合目标为 `height_1__shape_0__bust_2`、`height_1__shape_1__bust_0`。胸型 2 的 0009 新增覆盖为 530 面，剩余填补 934 面；平胸体型新增 531 面，填补 955 面。胸型 1 没有同体型 0009 来源，填补 1463 面。三套填补色均为默认 skin=1 diffuse 采样的 sRGB `(255,230,202)`；数值不包含场景灯光。
+
+```powershell
+python Tools/HeadlessExporter/decode_skin_inputs.py --package C:/path/BSTest.zip --output E:/BSTest-decoded --headless-tools Tools/HeadlessExporter --generic-skin 1
+python Tools/PDXExporter/complete_body_skin.py --manifest E:/previous/manifest.json --manifest E:/BSTest-decoded/manifest.json --output E:/completed-inputs --blender C:/path/blender-4.2/blender.exe --headless-tools Tools/HeadlessExporter --pdx-tools Tools/PDXExporter
+python Tools/PDXExporter/run_pdx.py --manifest E:/completed-inputs/manifest.json --output E:/PDX-completed-skin --blender C:/path/blender-4.2/blender.exe --pdx-plugin E:/vendor/io_pdx_mesh --body-reference C:/path/female_body.mesh --head-reference C:/path/female_head.mesh --character-db C:/path/master.mdb --character-id 1001 --character-id 1002 --character-id 1003 --body-type-morphs --only body_base
+blender --background --factory-startup --python-exit-code 1 --python Tools/PDXExporter/preview_skin_completion_blender.py -- E:/PDX-completed-skin/config.json
+python Tools/PDXExporter/install_completed_body.py --source-mod E:/Uma-Skin-Neck-Fix-Test --delivery E:/PDX-completed-skin --output E:/Uma-Complete-Skin-Test --pdx-tools Tools/PDXExporter --pdx-plugin E:/vendor/io_pdx_mesh
+```
+
+完成输入附带 `raw-inputs/manifest.json` 和所选源模型/贴图，可将它作为下一次 `--manifest` 重跑，不必再传完整游戏数据包。输出必须使用新目录。Blender 生成运行必须带 `--python-exit-code 1`，完成后复用 PDX 独立重开/回读验证。
+
+真实本轮已通过三个组件、三次 PDX IO 回读、一组完整 BS 的验证，三套正背面肤色图和覆盖图均已生成。`install_completed_body.py` 在新的模组副本中安装单皮肤模型：默认身体继续烘焙 105 倍，沿用上一版头颈位置和动画修复，核对头部/动画、四组 portrait type、18 岁年龄字段与基因保持不变。用于 CK3 的 diffuse alpha 为 0，以关闭 portrait_skin 的调色板混合；它是肤色 mask，源 Blender diffuse 的不透明 alpha 仍保留。本轮完成版尚未在 CK3 中切换 BS 端点运行验收。

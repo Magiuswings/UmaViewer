@@ -169,11 +169,13 @@ class Extractor:
             if source_kind == "body" and character == "shared" and name in ("_MainTex","_ToonMap","_TripleMaskMap","_OptionMaskMap"):
                 # Generic prefabs have empty bindings: UmaViewer fills these using costume + bust + skin.
                 fields = identifier[3:].split("_")
-                if len(fields) == 6 and fields[0] in ("0002", "0003", "0004"):
+                if len(fields) == 6 and fields[0] in ("0002", "0003", "0004", "0009"):
                     costume = "_".join(fields[:2]) + ("_00" if fields[0] == "0003" else "_"+fields[2])
                     skin = self.args.generic_skin if name in ("_MainTex", "_ToonMap") else "0"
                     ending = {"_MainTex":"diff","_ToonMap":"shad_c","_TripleMaskMap":"base","_OptionMaskMap":"ctrl"}[name]
-                    texture_name = "tex_bdy" + costume + "_" + skin + "_" + fields[-1] + "_" + ending
+                    # UmaContainerCharacter: 0009 adds the outfit colour before the map suffix.
+                    color = "_00" if fields[0] == "0009" else ""
+                    texture_name = "tex_bdy" + costume + "_" + skin + "_" + fields[-1] + color + "_" + ending
                     chosen = next((o for o in self.package.objects if o.type.name == "Texture2D" and self.package.read(o).m_Name == texture_name),None)
                     if chosen is None and not ptr:
                         self.errors.append(dict(kind="missing_generic_texture",material=data.m_Name,property=name,expected=texture_name))
@@ -276,12 +278,12 @@ class Extractor:
                     from PIL import Image
                     reference_texture=main['texture']
                     fields=identifier[3:].split('_')
-                    if character=='shared' and len(fields)==6 and fields[0] in ('0002','0003','0004'):
+                    if character=='shared' and len(fields)==6 and fields[0] in ('0002','0003','0004','0009'):
                         # Skin color must not alter anatomical region classification.
                         # Use the same costume/bust UV atlas at the reference skin,
                         # while retaining the table-selected diffuse for rendering.
                         name=Path(main['texture']).stem.split('__')[0].split('_')
-                        name[-3]=self.args.generic_skin_reference
+                        name[-4 if fields[0]=='0009' else -3]=self.args.generic_skin_reference
                         reference_name='_'.join(name)
                         reference=next((o for o in package.objects if o.type.name=='Texture2D' and package.read(o).m_Name==reference_name),None)
                         if reference is not None:reference_texture=self.texture(reference)

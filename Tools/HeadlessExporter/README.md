@@ -124,3 +124,8 @@ blender --background --factory-startup --python-exit-code 1 --python preview_seg
 ```
 
 第二版输出建议使用新的目录，避免混入旧策略留下的文件。验证保证源几何、绑定和分类分区完整性，不等于逐面人工确认语义分类。缺少的身体表面、游戏动画和物理模拟不在此次交付中。
+
+
+## 0009 露脐装的贴图绑定
+
+通用 0009 的 diffuse/shad_c/base/ctrl 名称在肤色、胸型后还有服装颜色字段，默认使用 00，遵循原仓库 UmaContainerCharacter 的规则。肤色分类参考同样保留该字段，仅替换 skin。decode_skin_inputs.py 可单独从 Copy-All 包提取真实 0004/0009，输出 JSON/PNG，不启动 Unity 或 UI。完整皮肤底模见 ../PDXExporter/README.md。
