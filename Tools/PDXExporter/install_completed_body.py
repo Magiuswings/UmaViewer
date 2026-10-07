@@ -121,7 +121,12 @@ def main():
     history=out/'history';history.mkdir(exist_ok=True)
     for filename in ('validation.json','skin-material-repair.json'):
         path=out/filename
-        if path.exists():path.rename(history/('before-skin-completion-'+filename))
+        if path.exists():
+            target=history/('before-skin-completion-'+b.sha(path)[:10]+'-'+filename)
+            counter=1
+            while target.exists():
+                target=history/('before-skin-completion-'+str(counter)+'-'+b.sha(path)[:10]+'-'+filename);counter+=1
+            path.rename(target)
     b.write_json(out/'validation.json',report)
     b.write_json(out/'active-completed-skin-assets.json',updated)
     (out/'descriptor.mod').write_text('name="UMA Complete Skin Test"\nsupported_version="1.20.*"\n',encoding='utf8')
