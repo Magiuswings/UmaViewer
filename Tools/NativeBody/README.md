@@ -17,9 +17,15 @@
 
 游戏中的身高使用原版additive_animation。源height0/2仍可在Blender用HeightSource_0/2编辑或对照，模组不同时叠加另一套height BS。它们描述的源形态不能认作与原版身高曲线定量相同；角色scale元数据仍不自动施加。
 
-最终文件放在gfx/models/portraits/uma/四位角色ID，默认共享底模存于1001。名称例如1001_body_base.mesh、1001_body_b0.mesh、1001_body_skin1_diffuse.dds、1001_head_0001_animation.anim。四位ID、元素、差分和类型组成名称，不使用十六进制尾码。对整个gfx检查大小写不敏感的basename唯一性，不能用不同目录掩盖同名冲突。全部生成TXT用UTF-8-BOM。character-body-bindings.json提供173条数据库记录到共享body参数、肤色和原版基因模板的索引，不自动分配游戏人物的DNA。
+最终文件放在gfx/models/portraits/uma/四位角色ID，最终通用底模存于0001，角色头部存于角色ID。名称例如uma_0001_body_base.mesh、uma_0001_body_b0.mesh、uma_0001_body_skin1_diffuse.dds、uma_1001_head_base.mesh。头部动作统一放在animation目录，使用uma_female_head_idle_1.anim等可读名称。shader保留通用uma_portrait.shader。四位ID、元素、差分和类型组成名称，不使用十六进制尾码。对整个gfx检查大小写不敏感的basename唯一性，不能用不同目录掩盖同名冲突。全部生成TXT用UTF-8-BOM。character-body-bindings.json提供173条数据库记录到共享body参数、肤色和原版基因模板的索引，不自动分配游戏人物的DNA。
 
-## 重跑
+## 当前发布步骤
+
+上一轮build_native_body_mod.py产物只是输入阶段，不能再直接作为最终模组发布。先在Blender4.2运行correct_posed_skin_normals.py，输入上一轮模组的body网格目录、输出新的0001目录；再运行rebuild_readable_assets.py，传入--source-mod上一轮模组、--legacy-mod保留原布局的来源模组、--body-meshes法线修复目录、--game实际游戏目录和--output新模组目录。最后用update_shared_body_blend.py更新可编辑工程。源顶点、BS端点、UV、权重、骨骼不移动；修改n/ta以消除原版中性姿势下蒙皮法线与几何法线不吻合的问题。
+
+body asset直接修补原版源文本，保持animation/additive_animation/blend_shape声明的原版单行排版、空白、引号，仅修改资源路径。body动画明确使用../../female_body/female_body_idle_1.anim等路径；无body动画副本或差分。新验证按asset所在虚拟目录解析路径，在模组/原版叠加目录查找，禁止用原版目录的同名文件兜底判定错误路径为通过。
+
+## 早期流程（保留作输入重现）
 
 使用Blender4.2、已有HeadlessExporter虚拟环境、PDXIO及本机CK3。原版游戏资产仅在用户本机读取，不提交到工具仓库。所有输出使用独立新目录；建议放在E盘。
 

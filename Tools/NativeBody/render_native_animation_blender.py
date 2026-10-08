@@ -6,12 +6,12 @@ import bpy
 from mathutils import Vector
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,required=True);p.add_argument('--plugin',type=Path,required=True);p.add_argument('--game',type=Path,required=True);p.add_argument('--root',type=Path,required=True);p.add_argument('--fixed',type=Path,required=True);p.add_argument('--working',type=Path,required=True);p.add_argument('--before',type=Path,required=True);p.add_argument('--output-name',default='native-animation-comparison')
+    p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,required=True);p.add_argument('--plugin',type=Path,required=True);p.add_argument('--game',type=Path,required=True);p.add_argument('--root',type=Path,required=True);p.add_argument('--fixed',type=Path,required=True);p.add_argument('--working',type=Path,required=True);p.add_argument('--before',type=Path,required=True);p.add_argument('--output-name',default='native-animation-comparison');p.add_argument('--before-label',default='Union: old bind');p.add_argument('--fixed-label',default='Union: corrected bind')
     a=p.parse_args(sys.argv[sys.argv.index('--')+1:]);sys.path.insert(0,str(a.repo/'Tools/PDXExporter'));import build_ck3_mod as b
     sys.path.insert(0,str(Path(__file__).parent));from test_vanilla_body_animation_blender import mesh_info,globals_for
     pdx=b.parser_only(a.plugin);folder=a.game/'gfx/models/portraits/female_body';sk,_,_=mesh_info(pdx.read_meshfile(str(folder/'female_body.mesh')))
     inputs=[a.working,a.before,a.fixed]
-    clips=['female_body_idle_1.anim','female_body_throneRoom_ruler1_1.anim','female_body_jockey_walk.anim'];labels=['Working sample (uma_3d.zip)','Union: old bind','Union: corrected bind'];records=[]
+    clips=['female_body_idle_1.anim','female_body_throneRoom_ruler1_1.anim','female_body_jockey_walk.anim'];labels=['Working sample (uma_3d.zip)',a.before_label,a.fixed_label];records=[]
     bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
     mat=bpy.data.materials.new('DiagnosticClay');mat.diffuse_color=(.61,.71,.79,1)
     for row,clip in enumerate(clips):
