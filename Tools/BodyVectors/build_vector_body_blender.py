@@ -7,6 +7,16 @@ import sys
 import bpy
 from mathutils import Vector
 
+
+def accelerate_pdx_lookup(pdx):
+    import inspect
+    source=inspect.getsource(pdx.get_mesh_info)
+    assert 'export_verts.index(new_vert)' in source
+    source=source.replace('unique_verts = set()', 'unique_verts = set()\n    unique_indices = {}')
+    source=source.replace('i = export_verts.index(new_vert)', 'i = unique_indices[new_vert]')
+    source=source.replace('export_verts.append(new_vert)', 'unique_indices[new_vert] = len(export_verts)\n                export_verts.append(new_vert)')
+    exec(compile(source, '<verified-pdx-index-cache>', 'exec'),pdx.__dict__)
+
 def main():
     config=json.loads(Path(sys.argv[sys.argv.index('--')+1]).read_text(encoding='utf8'))
     assert bpy.app.version[:2]==(4,2)
@@ -16,6 +26,7 @@ def main():
     from io_pdx_mesh import pdx_data
     from io_pdx_mesh.pdx_blender import blender_import_export as pdx
     io_pdx_mesh.register()
+    accelerate_pdx_lookup(pdx)
     from blender_pipeline import build,geometry_signature,select_export,write
     from rigging import adapt_rig
     core_path=repo/'Assets/StreamingAssets/Blender/uma_blender_import.py'

@@ -8,6 +8,16 @@ import sys
 import bpy
 from mathutils import Matrix,Vector
 
+
+def accelerate_pdx_lookup(pdx):
+    import inspect
+    source=inspect.getsource(pdx.get_mesh_info)
+    assert 'export_verts.index(new_vert)' in source
+    source=source.replace('unique_verts = set()', 'unique_verts = set()\n    unique_indices = {}')
+    source=source.replace('i = export_verts.index(new_vert)', 'i = unique_indices[new_vert]')
+    source=source.replace('export_verts.append(new_vert)', 'unique_indices[new_vert] = len(export_verts)\n                export_verts.append(new_vert)')
+    exec(compile(source, '<verified-pdx-index-cache>', 'exec'),pdx.__dict__)
+
 def main():
     config=json.loads(Path(sys.argv[sys.argv.index('--')+1]).read_text(encoding='utf8'))
     assert bpy.app.version[:2]==(4,2)
@@ -19,6 +29,7 @@ def main():
     from io_pdx_mesh import pdx_data
     from io_pdx_mesh.pdx_blender import blender_import_export as pdx
     io_pdx_mesh.register()
+    accelerate_pdx_lookup(pdx)
     from blender_pipeline import write
     spec=importlib.util.spec_from_file_location('vector_check_core',repo/'Assets/StreamingAssets/Blender/uma_blender_import.py');core=importlib.util.module_from_spec(spec);spec.loader.exec_module(core)
     analysis=json.loads(Path(config['analysis']).read_text(encoding='utf8'))
@@ -28,7 +39,7 @@ def main():
     bpy.ops.wm.open_mainfile(filepath=str(out/export['blend']))
     assert bpy.app.version_file[:2]==(4,2)
     base=next(o for o in bpy.data.objects if o.type=='MESH');rig=next(m.object for m in base.modifiers if m.type=='ARMATURE')
-    assert len(base.data.vertices)==3510 and len(base.data.polygons)==5472
+    assert len(base.data.vertices)==export['mesh_vertices'] and len(base.data.polygons)==export['triangles']
     assert len(base.data.materials)==1 and base.data.materials[0]['shader']=='portrait_skin'
     assert len(rig.data.bones)==134
     assert list(base.matrix_world)==list(Matrix.Identity(4))
@@ -113,7 +124,7 @@ def main():
         bpy.ops.wm.read_factory_settings(use_empty=True)
         pdx.import_meshfile(str(out/record['file']),imp_mesh=True,imp_skel=True,imp_locs=False,join_materials=False)
         meshes=[o for o in bpy.data.objects if o.type=='MESH']
-        assert sum(len(o.data.polygons) for o in meshes)==5472
+        assert sum(len(o.data.polygons) for o in meshes)==export['triangles']
         assert all(o.data.uv_layers and any(m.type=='ARMATURE' and m.object for m in o.modifiers) for o in meshes)
         assert {m['shader'] for o in meshes for m in o.data.materials}=={'portrait_skin'}
         roundtrips.append(dict(file=record['file'],passed=True));print('PDX_VECTOR_ROUNDTRIP',record['file'],flush=True)

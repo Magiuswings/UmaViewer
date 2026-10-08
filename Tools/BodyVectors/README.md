@@ -47,3 +47,23 @@ $plugin = 'E:/UmaViewer-Workspace/PDX-vendor/io_pdx_mesh'
 - `body_setting=03` 肥胖运动服是 6610 顶点/8698 面，和泳装 3510/5472 的拓扑不同；没有伪造为本底模的精确 fat 向量，原始肥胖与普通对照模型保留在解码数据中。
 - 本轮没有 CK3 实机各端点和完整动画验收。静态绑定复用 Basis；不同形态下的头颈接口和动态穿插仍需运行检查。
 - 原始加密 meta/master、运行解码配置、SaveData、账号文件、Blender 程序和 CK3 原版资产不提交或打包到公开工具仓库。
+
+
+## 0004 外包络向内重建修订
+
+
+本轮按用户修订：不是仅修肚脐，而是对整个竞技泳装包裹区域使用 0004 作为外包络。相同体型的其他通用衣装真实皮肤若位于包络以内，可恢复凹陷；位于外面的来源不能把底模撑大。未获得可靠皮肤的区域保留泳装代理。没有全身配准、平移或整体缩放源 Blender 工程。
+
+输入沿用此前已经解码的 0004/0009 84 套源快照，不扫描角色专属躯干，不重新解码全包。0009 主 M_Body 按名称选取，避免把顺序不固定的 M_Body_Alpha0 当作躯干。白色衣料被拒绝；深色皮肤细节需要周围裸肤支持。
+
+0004 包裹区域取共用细分拓扑，14787 顶点、27234 三角面。28 套体型、2 套0009来源族均有原顶点对应且几何可加。复用同一射线/三角面重心映射，将包络向内恢复；任何参数组合中会外凸的映射在全部体型中一致拒绝。边缘使用固定权重过渡和位移平滑，因此仍保持单变量 BS 的可加性。原有裸肤区域不作几何修正，UV0、骨骼权重在同一细分规则下插值。额外 UV 通道采用 Basis。
+
+全身 diffuse 使用同一肤色基准，清除原衣料区域的底色、衣缝和分区烘焙色差。已经确认的肚脐暗色从真实0009皮肤逐像素采样并标准化保留。其他恢复的凹陷由几何呈现，没有把衣缝当作皮肤纹理继承。
+
+11 个 height/shape/bust 取值键仍为单变量，其中3个为零位移。模型、28个组合、9个PDX端点回读、权重和134骨骼结构都完成独立检查；角色表173条绑定保留。外包络判定存在1.5e-6源单位的浮点容差，几何/BS报告中记录最大值。
+
+模组身体继续烘焙105倍，四组肖像类型、年龄字段和既有头颈位置保持。新增真实静态姿势跟随本Basis。当前未进行本轮CK3实机端点和动态验收；Blender预览仍可能显示几何过渡明暗，不能把它们当作已完成游戏内接受。
+
+关键文件：manifest.json（28个重建输入）、geometry-verification.json（包络/可加性）、reconstruction-map.json（细分/映射）、normalized-skin-colors.json、vector-delivery/uma_common_body_vectors.blend、vector-delivery/verification.json、Uma-Inward-Skin-Envelope-Mod。
+
+重跑顺序：prepare_skin_envelope.py → refine_skin_mask.py → Blender reconstruct_skin_envelope_blender.py → Blender bake_envelope_skin_detail_blender.py → finalize_envelope_textures.py → Blender analyze_vector_body_blender.py → run_body_vectors.py → export_mod_pose.py → install_vector_body_mod.py。输入/输出均使用新目录，保留此前版本。

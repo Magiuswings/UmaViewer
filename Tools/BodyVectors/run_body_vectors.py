@@ -61,7 +61,11 @@ def main():
         stats=skin_average(data,job,'body_skin',args.decoded_manifest.parent/decoded['resources'],cache)
         if not stats or stats['status']!='sampled':raise ValueError('No real skin samples for '+name)
         color=tuple(round(c) for c in stats['rgb_srgb_255'])
-        if skin!=1:
+        if completed.get('normalized_skin_textures'):
+            normalized=args.completed_manifest.parent/completed['resources']/completed['normalized_skin_textures'][str(skin)]
+            with Image.open(normalized) as raw:
+                raw.convert('RGBA').save(tex/('uma_body_skin_'+str(skin)+'.dds'),pixel_format='DXT5')
+        elif skin!=1:
             with Image.open(args.decoded_manifest.parent/decoded['resources']/texture['path']) as raw:
                 image=raw.convert('RGBA');image.paste(Image.new('RGBA',image.size,(*color,255)),(0,0),mask);image.save(tex/('uma_body_skin_'+str(skin)+'.dds'),pixel_format='DXT5')
         colors.append(dict(skin=skin,source_texture=name,source_png=texture['path'],source_sha256=sha(args.decoded_manifest.parent/decoded['resources']/texture['path']),statistics=stats,diffuse='meshes/uma_body_skin_'+str(skin)+'.dds',fill_rgb_srgb_255=color))
@@ -78,7 +82,7 @@ def main():
     config=dict(repo=str(args.repo.resolve()),manifest=str(args.completed_manifest.resolve()),decoded_manifest=str(args.decoded_manifest.resolve()),analysis=str(args.analysis.resolve()),inventory=str(args.inventory.resolve()),
                 output=str(out),plugin=str(args.pdx_plugin.resolve()),body_reference=str(args.body_reference.resolve()),
                 diffuse={texture_key:dict(dds='uma_body_skin_1.dds')},texture_directory='meshes',source_manifest_sha256=sha(args.completed_manifest),analysis_sha256=sha(args.analysis),
-                policy='One pure source displacement per parameter value; relative Basis; no mesh translation; common Basis rig/weights/all UV layers retained; source UV0 is identical in every profile')
+                policy='Reconstructed inward within the original 0004 envelope using fixed affine source correspondences; no global registration; common refined topology, UVs, weights and Basis rig; one variable per key')
     write(out/'config.json',config)
     env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1')
     for name in ('TEMP','TMP','TMPDIR'):env[name]=str(out/'.temp')
