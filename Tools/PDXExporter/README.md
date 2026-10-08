@@ -1,6 +1,6 @@
 # UMA → Blender 4.2 / PDX Mesh
 
-这一步处理已解密、具有实际文件名的 UnityFS 资产，复用 `../HeadlessExporter` 的真实 ZIP 解析结果。文件名解密仍不在本工具内。`run_pdx.py` 运行 Python，转换与验证脚本运行在 **Blender 4.2** 内；4.2 版本检查不接受 Blender 5.x 文件作为转换输入。
+这一步处理已解密、具有实际文件名的 UnityFS 资产，复用 `../HeadlessExporter` 的真实 ZIP 解析结果。原始哈希/加密数据的第一步读取由 [RawAssets](../RawAssets/README.md) 提供。`run_pdx.py` 运行 Python，转换与验证脚本运行在 **Blender 4.2** 内；4.2 版本检查不接受 Blender 5.x 文件作为转换输入。
 
 用户指定的策略：保留源网格顶点坐标、对象变换、UV、面连接和 Basis；按 CK3 原版骨架名称、父链和朝向适配绑定点。直接对应的关节落在 UMA 的现有源关节点，缺少的辅助骨骼按参考父骨局部关系与实测比例生成。未匹配的源骨骼权重沿源父链合并到对应关节，服装链按同类骨骼链和位置匹配。每顶点最多四项权重并归一化，截断量与全部映射写在 `.rig.json`。
 
@@ -161,3 +161,12 @@ python Tools/PDXExporter/install_completed_body.py --source-mod E:/Uma-Skin-Neck
 完成输入附带 `raw-inputs/manifest.json` 和所选源模型/贴图，可将它作为下一次 `--manifest` 重跑，不必再传完整游戏数据包。输出必须使用新目录。Blender 生成运行必须带 `--python-exit-code 1`，完成后复用 PDX 独立重开/回读验证。
 
 真实本轮已通过三个组件、三次 PDX IO 回读、一组完整 BS 的验证，三套正背面肤色图和覆盖图均已生成。`install_completed_body.py` 在新的模组副本中安装单皮肤模型：默认身体继续烘焙 105 倍，沿用上一版头颈位置和动画修复，核对头部/动画、四组 portrait type、18 岁年龄字段与基因保持不变。用于 CK3 的 diffuse alpha 为 0，以关闭 portrait_skin 的调色板混合；它是肤色 mask，源 Blender diffuse 的不透明 alpha 仍保留。本轮完成版尚未在 CK3 中切换 BS 端点运行验收。
+
+
+## 单变量通用躯干（2026-10-08）
+
+新的显式 [BodyVectors](../BodyVectors/README.md) 流程只读取 `bdy00…` 通用模型，采用原始竞技泳装的 28 套体型和同参数 0009 露肤并集重建单皮肤底模；源坐标不做位移。以 height=1 / shape=0 / bust=2 为 Basis，提供 height 3 种、shape 3 种、bust 5 种取值键，其中 8 个非零、3 个零位移默认值。28 个真实组合全部能由纯单变量向量相加重建，覆盖实际 master 的 173 条角色记录，不生成每角色或每组合躯干键。
+
+这一流程独立验证原始顶点编号、有向拓扑、完全相同的 UV0 和语义权重，并明确复用 Basis 的附加 UV 与骨架。它不会放宽普通部件/服装的全部 UV 严格复用规则，也不会改变旧的完整组合工具模式。源骨骼点随体型有所变化，共用 Shape Key 工程没有给每个键移动骨骼；完整动画仍未验收。肥胖运动服 setting03 与泳装拓扑不同，没有伪造为精确向量。
+
+实际完成 11 个 Blender4.2 取值键、28 种组合求值、PDX 二进制组合及 9 个插件回读检查；四种肤色仍通过真实 diffuse 和 JSON 独立索引。新的可选安装器使用 gene_uma_height / gene_uma_shape / gene_uma_bust，逐字段保留四组 portrait type、原年龄阈值与既有头颈修复；身体继续按用户要求烘焙105。当前未完成本轮 CK3 实机端点/动画验收。

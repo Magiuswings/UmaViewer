@@ -34,9 +34,10 @@ def main():
     if out.exists():raise FileExistsError(out)
     if any(out.is_relative_to(m.resolve().parent) for m in args.manifest):p.error('Output must preserve source directories')
     out.mkdir(parents=True);(out/'work').mkdir()
-    entries={};inputs=[]
+    entries={};inputs=[];characters=set()
     for path in args.manifest:
         manifest=json.loads(path.read_text(encoding='utf8'))
+        characters.update(manifest.get('characters',[]))
         inputs.append(dict(manifest=str(path.resolve()),sha256=sha(path),input=manifest.get('input'),input_sha256=manifest.get('input_sha256')))
         for job in manifest['jobs']:
             profile=body_profile(job['source'],job['kind'])
@@ -60,7 +61,7 @@ def main():
                 if not dst.exists():os.link(src,dst)
         raw_jobs.append(job)
         entry['snapshot_path']=str(raw/job['snapshot']);entry['resources_path']=str(raw/'resources')
-    write(raw/'manifest.json',dict(version=1,input='Selected real 0004/0009 input snapshots',resources='resources',jobs=raw_jobs,characters=['1001','1002','1003'],errors=[],warnings=[],body_bases=[],upstream_inputs=inputs))
+    write(raw/'manifest.json',dict(version=1,input='Selected real 0004/0009 input snapshots',resources='resources',jobs=raw_jobs,characters=sorted(characters),errors=[],warnings=[],body_bases=[],upstream_inputs=inputs))
     bodies=[]
     for entry in entries.values():
         profile=entry['profile']
@@ -142,7 +143,7 @@ def main():
         job.update(snapshot=snapshot.relative_to(out).as_posix(),categories=['body_skin'],category_triangles={'body_skin':sum(len(m['faces'][0]['triangles'])//3 for m in data['meshes'])},body_profile=entry['profile'])
         jobs.append(job)
         reports.append(dict(job=job['name'],profile=entry['profile'],meshes=summaries,fill_rgb_srgb_255=fill_rgb,default_diffuse_skin_statistics=avg,texture=newrel,geometry_uv_weights_bones_shapes_preserved=True,all_triangles_skin=True,material_slots=1))
-    manifest=dict(version=1,input='Real decoded 0004 + 0009 skin completion',jobs=jobs,resources='resources',characters=['1001','1002','1003'],errors=[],warnings=[],body_bases=select_body_bases(jobs,lambda j:json.loads((out/j['snapshot']).read_text(encoding='utf8'))))
+    manifest=dict(version=1,input='Real decoded 0004 + 0009 skin completion',jobs=jobs,resources='resources',characters=sorted(characters),errors=[],warnings=[],body_bases=select_body_bases(jobs,lambda j:json.loads((out/j['snapshot']).read_text(encoding='utf8'))))
     write(out/'manifest.json',manifest)
     assert all(sha(Path(path))==value for path,value in source_hashes.items())
     write(out/'skin-union-report.json',dict(passed=True,inputs=inputs,method=coverage['method'],parameters=coverage['parameters'],bodies=reports,source_diffuse_hashes_unchanged=source_hashes,clothing_material_slots_in_completed_bodies=0,missing_skin_always_filled=True,bs_policy='Fixed original complete 0004 topology for each profile; source vertices/UV/weights and whole-combination BS correspondence preserved'))

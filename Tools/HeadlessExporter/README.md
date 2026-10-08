@@ -129,3 +129,6 @@ blender --background --factory-startup --python-exit-code 1 --python preview_seg
 ## 0009 露脐装的贴图绑定
 
 通用 0009 的 diffuse/shad_c/base/ctrl 名称在肤色、胸型后还有服装颜色字段，默认使用 00，遵循原仓库 UmaContainerCharacter 的规则。肤色分类参考同样保留该字段，仅替换 skin。decode_skin_inputs.py 可单独从 Copy-All 包提取真实 0004/0009，输出 JSON/PNG，不启动 Unity 或 UI。完整皮肤底模见 ../PDXExporter/README.md。
+
+
+纯通用躯干、无头部贴图的输入可使用 [BodyVectors](../BodyVectors/README.md)：只选择 bdy00 通用源，从真实泳装 diffuse 获取参考肤色，独立重建单皮肤躯干与单变量 BS；不扫描角色专属身体。
