@@ -562,7 +562,7 @@ def build_mod(sample, delivery, output, plugin, rest_animation, reuse_vanilla_bo
     default_gene_name = "gene_bs_bust" if vanilla_gene_contract else "gene_uma_body_combinations"
     default_template = vanilla_gene_contract["default_template"] if vanilla_gene_contract else "uma_combo_" + slug(default_key)
     addition = '\n\t' + default_gene_name + ' = { 100 = { name = "' + default_template + '" range = { 1.0 1.0 } } }\n'
-    ethnicity_path.write_text("uma_ethnicity = {" + ethnic_body + addition + "}\n\numa_ethnity = {" + ethnic_body + addition + "}\n", encoding="utf8")
+    ethnicity_path.write_text("uma_ethnicity = {" + ethnic_body + addition + "}\n\numa_ethnity = {" + ethnic_body + addition + "}\n", encoding="utf-8-sig")
     descriptor = 'version="1.0.0"\ntags={ "Graphics" }\nname="Uma PDX Combinations"\nsupported_version="1.20.*"\n'
     (output / "descriptor.mod").write_text(descriptor, encoding="utf8")
     (output / "launcher-entry.mod").write_text(descriptor + 'path="mod/' + output.name + '"\n', encoding="utf8")

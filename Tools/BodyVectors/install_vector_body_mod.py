@@ -95,7 +95,7 @@ def main():
             branch=[('index',str(key['value'])),('visible','yes'),('uma_female',settings),('uma_male',[]),('uma_girl','uma_female'),('uma_boy','uma_male')]
             gene.append(('uma_'+key['key'],branch))
         morph.append(('gene_uma_'+field,gene))
-    (out/'common/genes/uma_genes_morph.txt').write_text(b.script_block([('morph_genes',morph)])+'\n',encoding='utf8')
+    (out/'common/genes/uma_genes_morph.txt').write_text(b.script_block([('morph_genes',morph)])+'\n',encoding='utf-8-sig')
     ethnic_path=out/'common/ethnicities/uma_ethnicity.txt';ethnic=b.clausewitz(ethnic_path.read_text(encoding='utf-8-sig'))
     for index,(name,body) in enumerate(ethnic):
         if name not in ('uma_ethnicity','uma_ethnity'):continue
@@ -103,7 +103,7 @@ def main():
         for field,value in export['basis_profile'].items():
             new.append(('gene_uma_'+field,[('100',[('name','uma_'+field+'_'+str(value)),('range',[(None,'1.0'),(None,'1.0')])])]))
         ethnic[index]=(name,new)
-    ethnic_path.write_text(b.script_block(ethnic)+'\n',encoding='utf8')
+    ethnic_path.write_text(b.script_block(ethnic)+'\n',encoding='utf-8-sig')
     assert b.sha(out/'common/portrait_types/uma_portrait_types.txt')==portrait_hash
     assert all(b.sha(out/f)==h for f,h in stable.items())
     # Evaluate the new gene definition as independent scalar one-hot settings.
