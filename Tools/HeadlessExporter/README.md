@@ -4,7 +4,7 @@
 
 后续 CK3 骨骼适配、PDX shader、肤色统计和严格拓扑形态导出见 [PDXExporter](../PDXExporter/README.md)。PDX 流程要求 Blender **4.2**，本次两个泳装包已从原始 ZIP 在 4.2.23 重新生成并独立重开验证，不能使用此前的 5.x 工程替代。
 
-第一步的原始文件名映射、资源密钥解密和游戏数据库查询没有实现；输入必须已经是带有意义路径的 UnityFS 数据包。`.zip` 直接在内存读取，不执行包内脚本，也不把包中的文件解压到任意位置。
+第一步现由 [RawAssets 命令行读取器](../RawAssets/README.md) 实现：可读取原始 Persistent 目录或分卷ZIP，查询数据库、映射哈希资源名、解析依赖并解码UnityFS。此阶段输入仍是命名后的UnityFS；RawAssets输出可以直接接本程序，无需Unity或Copy-All UI。`.zip` 直接在内存读取，不执行包内脚本，也不把包中的文件解压到任意位置。
 
 ## 安装和运行
 
