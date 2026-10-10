@@ -30,7 +30,7 @@ def bake(source,uv,source_uv,faces,size=512):
     assert valid.any()
     nearest=distance_transform_edt(~valid,return_distances=False,return_indices=True);out[~valid]=out[nearest[0][~valid],nearest[1][~valid]]
     # CK3 skin diffuse alpha is a palette mask, not opacity.
-    out[:,:,3]=0
+    out[:,:,3]=255  # Enable the CK3 skin palette mask; not transparency.
     return Image.fromarray(np.clip(np.rint(out),0,255).astype('uint8')),int(valid.sum())
 
 def main():

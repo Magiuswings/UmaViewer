@@ -135,7 +135,10 @@ def main():
         match=re.fullmatch(r'bust_shape_([1-4])_(half|full)',template);active=int(match[1])if match else None;amount='.5'if match and match[2]=='half'else'1.0'
         branch=[]
         for index in range(1,5):
-            value=amount if active==index else'0.0';setting=[('attribute','bs_body_breast_shape_'+str(index)),('value',[('min',value),('max',value)])]
+            # Inactive shapes use the entity's neutral default; a 0-to-0
+            # setting does not constitute a usable morph range.
+            if active!=index:continue
+            value=amount;setting=[('attribute','bs_body_breast_shape_'+str(index)),('value',[('min',value),('max',value)])]
             if active==index:setting.append(('age','age_preset_puberty'))
             branch.append(('setting',setting))
         metadata += [('uma_male',[]),('uma_female',branch),('uma_boy','uma_male'),('uma_girl','uma_female')];bust.append((template,metadata))

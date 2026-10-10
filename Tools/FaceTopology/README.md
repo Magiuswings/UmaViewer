@@ -33,3 +33,5 @@
 典型顺序：prepare_face_dataset.py --extract → extract_face_dataset.py → optimize_face_network.py --scope skin --starts 5 --exclude-id 2008 → refine_common_network.py → build_common_face_targets.py → Blender build_face_blend_blender.py → verify_face_blend_blender.py → render_common_face_blender.py / render_face_sources_blender.py。
 
 各命令 --help 提供路径参数。输出目录使用新的版本名；优化中断可用 --resume 从已完成起点继续。所有 .txt 说明用 UTF-8-BOM，模型以四位 ID 分目录并使用 uma_ 前缀。OBJ 和 Blender 都保留同一顶点编号及三角面数组。
+
+当前单角色修复入口见 [HeadAccessory](../HeadAccessory/README.md)：空头姿势骨架 + 五个独立 accessory，阻止原版 complexion 纹理覆盖，修正共享眼球支点和皮肤调色遮罩。先只验证 1001，尚未完成 CK3 新版实机验收，不应直接重跑全量角色。

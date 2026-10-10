@@ -31,3 +31,5 @@ Windows PowerShell 含空格路径应使用引号。TEMP/TMP/TMPDIR 和 Blender 
 prepare 的 `--resume` 仅续用同一次输入已完成的 DDS。export 的 `--reuse-exports` 会逐点和逐连接核对已有端点，不能用存在性代替匹配检查。build 的 `--resume` 只允许同一名 UMA Face Morphs 的生成副本，重建配置与验证；不用来改写用户现有模组。
 
 验收包含全部目标二进制的网络、权重、骨架、坐标核对；所有共用头动画首/中/末帧的实际 t/q/s 数值求值；最终 Blender 重开、全部身份的端点和中间权重、真实待机矩阵对照、所有目标的 PDX IO 回读以及渲染。它们不能替代 CK3 实机验收，也不证明闭眼、张嘴等表情与原始角色完全一致。不同脸型的眼口、耳部、附件贴合仍需继续处理。
+
+当前单角色修复入口见 [HeadAccessory](../HeadAccessory/README.md)：空头姿势骨架 + 五个独立 accessory，阻止原版 complexion 纹理覆盖，修正共享眼球支点和皮肤调色遮罩。先只验证 1001，尚未完成 CK3 新版实机验收，不应直接重跑全量角色。
