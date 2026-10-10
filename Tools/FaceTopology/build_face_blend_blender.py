@@ -20,7 +20,7 @@ def main():
     body.shape_key_add(name='Basis');keys={}
     for row in report['per_model']:
         ident=row['id'];name='uma_0001_face_'+ident if ident.startswith('npc_')else'uma_'+ident+'_face';key=body.shape_key_add(name=name);key.data.foreach_set('co',(data[ident]@C.T).astype(np.float32).reshape(-1));key.value=0;keys[ident]=key.name
-    body['uma_network_objective']=topology['objective'];body['uma_topology_hash']=topology['topology_hash'];body['uma_basis_source']=topology['source_medoid'];body['uma_identity_shape_keys']=json.dumps(keys);body['uma_scope']='Geometrically connected facial skin shell; source eye/oral/eyelid parts retained separately';body['uma_material_work_pending']='Character textures require transfer/rebake to common UV; expression rigs are not verified'
+    body['uma_network_objective']=topology['objective'];body['uma_topology_hash']=topology['topology_hash'];body['uma_basis_source']=topology['source_medoid'];body['uma_basis_geometry_source']=topology.get('geometry_basis_identity',topology['source_medoid']);body['uma_identity_shape_keys']=json.dumps(keys);body['uma_scope']='Geometrically connected facial skin shell; source eye/oral/eyelid parts retained separately';body['uma_material_work_pending']='Character textures require transfer/rebake to common UV; expression rigs are not verified'
     refs=bpy.data.collections.new('SOURCE_REFERENCES_DO_NOT_EXPORT');scene.collection.children.link(refs);refs.hide_render=True
     chosen=['1001','1003','1071','1105','9003','9007','npc_000','npc_009']
     for ident in chosen:
