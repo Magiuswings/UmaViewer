@@ -1,5 +1,7 @@
 # UMA → Blender 4.2 / PDX Mesh
 
+共网格脸型的 CK3 中性身份 BS 导出入口为 [FaceCK3](../FaceCK3/README.md)。它读取 FaceTopology 修复版，不重新扫描头部原始数据，使用新 `gene_uma_face_identity` 与既有马娘共用头部动画。
+
 直接调用原版躯干动画的修复流程见 [NativeBody](../NativeBody/README.md)：保持网格坐标与关节点，校正T姿势的逆绑定方向，保留原版body资产动画与基因接口。旧的静态适配／rest动画流程仍用于复现早期版本。
 
 这一步处理已解密、具有实际文件名的 UnityFS 资产，复用 `../HeadlessExporter` 的真实 ZIP 解析结果。原始哈希/加密数据的第一步读取由 [RawAssets](../RawAssets/README.md) 提供。`run_pdx.py` 运行 Python，转换与验证脚本运行在 **Blender 4.2** 内；4.2 版本检查不接受 Blender 5.x 文件作为转换输入。
