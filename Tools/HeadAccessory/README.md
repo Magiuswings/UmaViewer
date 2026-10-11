@@ -1,3 +1,5 @@
+> This is the historical identity-BS prototype. The current 1001 direct-accessory workflow is [NativeAccessories](../NativeAccessories/README.md); its active mod contains no face-identity morph gene.
+
 # UMA 1001 Accessory Test
 
 基于用户提供的“调色盘无效，动画错位.zip”修改，只导出和验证 1001。另以“调色盘有效.zip”的材质作为只读对照。原始压缩包及安装中的游戏文件未修改。
