@@ -1,0 +1,23 @@
+import os
+import json,sys,copy
+from pathlib import Path
+import numpy as np
+from PIL import Image
+sys.path.insert(0,str(Path(os.environ.get('UMA_V7_REPO','E:/UmaViewer-Workspace/UmaViewer-source')) / 'Tools/PDXExporter'))
+from build_ck3_mod import parser_only
+from head_pdx_tools import pts,world,skeleton,make_mesh,make_anim
+ROOT=Path(str(Path(os.environ.get('UMA_V7_ROOT','E:/UmaViewer-Exports/2026-10-11-UMA-V7'))));SRC=ROOT/'HeadSources';OUT=SRC/'Export';OLD=Path(str(Path(os.environ.get('UMA_V6_INPUT','E:/UmaViewer-Exports/2026-10-11-UMA-V6-1001'))));P=parser_only(str(Path(os.environ.get('UMA_V7_PLUGIN','E:/UmaViewer-Workspace/PDX-vendor/io_pdx_mesh'))));contract=json.loads((ROOT/'rig-contract.json').read_text());C=np.eye(4);C[:3,:3]=np.array(contract['head_source_to_engine']);CI=np.linalg.inv(C);sourceframes=np.load(OLD/'native-motion-frames.npz');clips={r['key']:r for r in json.loads((OLD/'native-motion-index.json').read_text())};bs=P.read_meshfile(str(ROOT/'Rigs/body.mesh')).find('object')[0].find('skeleton');bnames=[b.tag for b in sorted(bs,key=lambda b:b.get('ix')[0])];A=world(bs)[bnames.index('body_root')];desired=np.eye(4);desired[:3,3]=A[:3,3];K=np.linalg.inv(A)@desired;results=[]
+for char in ['1001','1002']:
+    folder=OUT/f'tail_{char}';folder.mkdir(exist_ok=True);data=json.loads((SRC/f'parsed/tail_{char}/tail.json').read_text());mesh=data['meshes'][0];prefix=f'uma_{char}_tail';names=[b['name']for b in data['bones']];byid={b['id']:i for i,b in enumerate(data['bones'])};parents=[byid.get(b['parent'])for b in data['bones']];sw=np.array([np.array(b['matrix']).reshape(4,4)for b in data['bones']]);bw=np.array([K@C@w@CI for w in sw]);sk=skeleton(names,parents,bw);source=pts(mesh['vertices']);p=(K[:3,:3]@C[:3,:3]@source.T).T+K[:3,3];n=pts(mesh['normals'])@(K@C)[:3,:3].T;n/=np.linalg.norm(n,axis=1)[:,None];uv=np.array([[v['x'],1-v['y']]for v in mesh['uvs'][0]['values']]);tri=np.concatenate([np.array(f['triangles']).reshape(-1,3)for f in mesh['faces']]);ix=np.full((len(p),4),-1,int);w=np.zeros((len(p),4));byv=[[]for _ in p]
+    for entry in mesh['weights']:byv[entry['vertex']].append((byid[entry['bone']],entry['weight']))
+    for i,ws in enumerate(byv):
+        ss=sum(w for j,w in ws)
+        for k,(j,weight)in enumerate(ws):ix[i,k]=j;w[i,k]=weight/ss
+    record={'actor':char,'element':'tail','prefix':prefix,'attachment_node':'body_root','shared_pose_entity':None,'independent_native_pose':True,'source_json':str(SRC/f'parsed/tail_{char}/tail.json'),'mesh_path':str(folder/(prefix+'.mesh')),'body_root_bind':A.tolist(),'full_native_transforms_retained':len(names),**make_mesh(P,folder/(prefix+'.mesh'),prefix,p,n,uv,tri,ix,w,sk,'portrait_hair',prefix)}
+    tex=next(x for x in data['materials'][0]['properties']if x['name']=='_MainTex');path=SRC/f'parsed/tail_{char}/resources'/tex['texture'];pixels=np.array(Image.open(path).convert('RGBA'));rgb=pixels[:,:,:3]/255.;lum=rgb@np.array([.2126,.7152,.0722]);ref=np.percentile(lum[pixels[:,:,3]>0],85);pixels[:,:,:3]=np.rint(np.clip(lum/max(ref,1e-8)*.82,0,1)[:,:,None]*255)
+    for ending,arr in [('diffuse',pixels),('normal',np.tile([0,128,255,128],(*pixels.shape[:2],1))),('properties',np.tile([0,38,0,180],(32,32,1))),('ssao',np.tile([255,255,255,96],(32,32,1)))]:Image.fromarray(np.asarray(arr,np.uint8),'RGBA').save(folder/(prefix+'_'+ending+'.dds'),pixel_format='DXT5')
+    record['source_character_diffuse']=str(path);record['source_weights']=mesh['weights'];record['animations']=[]
+    for ck,state in zip(['tail_04','tail_10','tail_16'],['idle_entry','idle','frontEnd_middle_entry']):
+        rec=clips[ck];tracks={n:sourceframes[ck+'__'+n]for n in names if ck+'__'+n in sourceframes};anim=folder/'animation'/(prefix+'_'+state+'.anim');record['animations'].append({'state':state,'source_key':ck,'source_asset':rec['source'],'file':str(anim),**make_anim(P,anim,names,parents,sw,K,C,tracks,rec['frames'])})
+    raw=P.read_meshfile(record['mesh_path']).find('object')[0].find('mesh');actual=np.array(raw.get('p')).reshape(-1,3);goal=(C[:3,:3]@source.T).T+A[:3,3];attached=(A[:3,:3]@actual.T).T+A[:3,3];record['neutral_attachment_world_error_cm']=float(np.linalg.norm(goal-attached,axis=1).max());assert record['neutral_attachment_world_error_cm']<1e-4;results.append(record);(folder/'tail-delivery.json').write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n',encoding='utf8');print('V7_TAIL_EXPORTED',char,len(p),len(tri),len(names),record['neutral_attachment_world_error_cm'],flush=True)
+index=json.loads((OUT/'head-export-index.json').read_text());index['tails']=results;(OUT/'head-export-index.json').write_text(json.dumps(index,ensure_ascii=False,indent=2)+'\n',encoding='utf8')

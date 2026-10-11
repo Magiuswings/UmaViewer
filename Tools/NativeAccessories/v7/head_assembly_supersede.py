@@ -1,0 +1,4 @@
+import os
+import json
+from pathlib import Path
+out=Path(str(Path(os.environ.get('UMA_V7_ROOT','E:/UmaViewer-Exports/2026-10-11-UMA-V7')) / 'HeadSources/AssemblyQA'));p=out/'blender-assembly-qa.json';d=json.loads(p.read_text());d['superseded_by_neck_surface_repair_qa']=str(out/'blender-neck-repair-qa.json');d['legacy_saved_snapshot_root_compensation_incomplete']=True;d['legacy_snapshot_reason']='Earlier editable saved scene attached carrier directly to body thoracic socket without inverse(current head_root) object basis. Its pre-save numeric assembly/render test used the correct inverse; legacy blend snapshots are superseded by *_neck_repaired_assembly.blend and uma_v7_dual_actor_neck_repaired.blend.';d['legacy_dual_blend_not_current_delivery']=True;p.write_text(json.dumps(d,indent=2)+'\n',encoding='utf8');print('LEGACY_SNAPSHOT_REPORT_MARKED_SUPERSEDED')

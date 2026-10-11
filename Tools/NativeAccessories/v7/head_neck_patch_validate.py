@@ -1,0 +1,34 @@
+import os
+import json,sys,hashlib
+from pathlib import Path
+import numpy as np
+sys.path.insert(0,str(Path(os.environ.get('UMA_V7_REPO','E:/UmaViewer-Workspace/UmaViewer-source')) / 'Tools/PDXExporter'))
+from build_ck3_mod import parser_only
+from head_assembly_math import rigdata,compose,readlocals,shared_pose,deform
+ROOT=Path(str(Path(os.environ.get('UMA_V7_ROOT','E:/UmaViewer-Exports/2026-10-11-UMA-V7'))));SRC=ROOT/'HeadSources';MOD=ROOT/'UMA-V7';P=parser_only(str(Path(os.environ.get('UMA_V7_PLUGIN','E:/UmaViewer-Workspace/PDX-vendor/io_pdx_mesh'))));report=json.loads((SRC/'NeckPatch/neck-patch-delivery.json').read_text());index=json.loads((SRC/'Export/head-export-index.json').read_text());components=json.loads((SRC/'head-component-index.json').read_text());carrier=rigdata(P.read_meshfile(str(MOD/'gfx/models/portraits/uma/0001/uma_0001_head_female.mesh')).find('object')[0].find('skeleton'));a0=readlocals(P,ROOT/'Rigs/uma_1002_head_points.anim',0);a1=readlocals(P,ROOT/'Rigs/uma_1002_head_points.anim',1);delta={n:a1[n][:3,3]-v[:3,3]for n,v in a0.items()if np.max(np.abs(a1[n][:3,3]-v[:3,3]))>1e-8};cases=[]
+for header in index['heads']:
+    actor=header['actor'];variant=header['variant']
+    if '--reclassified-only'in sys.argv and (actor,variant)!=('1002','30'):
+        cases.append(next(r for r in json.loads((SRC/'NeckPatch/neck-patch-validation.json').read_text())['cases']if (r['actor'],r['variant'])==(actor,variant)));continue
+    delivery=json.loads(Path(header['delivery_json']).read_text());part=json.loads((SRC/f'partitions/chr{actor}_{variant}/head-components.json').read_text());counts={e:len(part.get(e+'_triangle_ids',[]))for e in ['hair','ear','headwear','neck_patch']};item=next(r for r in components['variants']if r['actor']==actor and r['variant']==variant)
+    for e,n in counts.items():item[e+'_triangles']=n
+    selected=part['neck_patch_triangle_ids'];row=next(r for r in delivery['components']if r['element']=='neck_patch');case={'actor':actor,'variant':variant,'present':row['present'],'source_partition_counts':counts,'source_triangle_coverage_complete':part['original_source_coverage_with_neck_patch_complete']}
+    if row['present']:
+        node=P.read_meshfile(row['mesh_path']).find('object')[0];mesh=node.find('mesh');rig=rigdata(node.find('skeleton'));p=np.array(mesh.get('p')).reshape(-1,3);ix=np.array(mesh.find('skin').get('ix')).reshape(-1,4);w=np.array(mesh.find('skin').get('w')).reshape(-1,4);originalrow=next(r for r in delivery['components']if r['element']=='hair');old=P.read_meshfile(originalrow['mesh_path']).find('object')[0];oldmesh=old.find('mesh');oldrig=rigdata(old.find('skeleton'));orig=originalrow['source_vertex_mapping'][0]['source_vertex_ids'];ids=row['source_vertex_mapping'][0]['source_vertex_ids'];comparisons=[(i,orig.index(v))for i,v in enumerate(ids)if v in orig];op=np.array(oldmesh.get('p')).reshape(-1,3);on=np.array(oldmesh.get('n')).reshape(-1,3);n=np.array(mesh.get('n')).reshape(-1,3);maximum=max([np.linalg.norm(p[i]-op[j])for i,j in comparisons]or[0]);normal=max([np.linalg.norm(n[i]-on[j])for i,j in comparisons]or[0]);assert maximum<1e-6 and normal<1e-6
+        tests=[]
+        for context,clip in [('idle','uma_female_head_idle_1.anim'),('court','uma_female_head_throneRoom_ruler3_1.anim')]:
+            if not comparisons:continue
+            path=MOD/'gfx/models/portraits/uma/animation'/clip;count=P.read_meshfile(str(path)).find('info').get('sa')[0];maxerror=0
+            for frame in range(count):
+                cw=compose(carrier,readlocals(P,path,frame),delta if actor=='1002'else{});actual=deform(mesh,rig,shared_pose(rig,carrier,cw));expected=deform(oldmesh,oldrig,shared_pose(oldrig,carrier,cw));maxerror=max(maxerror,max([np.linalg.norm(actual[i]-expected[j])for i,j in comparisons]or[0]))
+            assert maxerror<1e-5;tests.append({'context':context,'all_head_frames':count,'max_original_hair_vertex_lbs_error_cm':maxerror,'matching_original_hair_points':len(comparisons)})
+        if not comparisons:
+            wr=next(r for r in delivery['components']if r['element']=='headwear');wnode=P.read_meshfile(wr['mesh_path']).find('object')[0];wm=wnode.find('mesh');wid=wr['source_vertex_mapping'][0]['source_vertex_ids'];wp=np.array(wm.get('p')).reshape(-1,3);wn=np.array(wm.get('n')).reshape(-1,3);ww=np.array(wm.find('skin').get('w')).reshape(-1,4);wix=np.array(wm.find('skin').get('ix')).reshape(-1,4);wrnames=rigdata(wnode.find('skeleton'))['names'];anchor=np.array(json.loads((ROOT/'rig-contract.json').read_text())['head_anchor']);maximum=float(max(np.linalg.norm(p[i]-wp[wid.index(v)]-anchor)for i,v in enumerate(ids)));normal=float(max(np.linalg.norm(n[i]-wn[wid.index(v)])for i,v in enumerate(ids)));assert maximum<2e-6 and normal<1e-6
+            for i,v in enumerate(ids):
+                oldweights={wrnames[bone]:float(val)for bone,val in zip(wix[wid.index(v)],ww[wid.index(v)])if bone>=0};newweights={rig['names'][bone]:float(val)for bone,val in zip(ix[i],w[i])if bone>=0};assert abs(oldweights['Head']-newweights['bn_h_head'])<1e-7 and abs(oldweights.get('Neck',0)-newweights.get('bn_h_neck_1',0))<1e-7
+        case.update({'bones':len(rig['names']),'all_native_aux_retained':set(oldrig['names'])==set(rig['names']),'weight_sum_max_error':float(np.max(np.abs(w.sum(1)-1))),'copied_existing_component_position_max_error_cm':float(maximum),'copied_normal_max_error':float(normal),'current_pose_checks':tests if comparisons else [],'source_original_headwear_to_skin_reclassification':not comparisons,'source_headwear_head_neck_weights_exact_if_reclassified':not comparisons,'sdk_import_pending_shared_slot':True})
+    cases.append(case)
+components['neck_patch_index']=str(SRC/'NeckPatch/neck-patch-delivery.json');components['criteria']+=' Rear-neck skin split uses native ring-connected pure Head/Neck weights and source skin RGB/ctrl evidence; 1001_30 absent.'
+def dump(p,d):p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
+dump(SRC/'head-component-index.json',components);validation={'passed':True,'cases':cases,'original_face_body_geometry_or_core_rigs_edited':False,'actual_blender_import_pending':True};dump(SRC/'NeckPatch/neck-patch-validation.json',validation);report['numeric_validation_json']=str(SRC/'NeckPatch/neck-patch-validation.json');dump(SRC/'NeckPatch/neck-patch-delivery.json',report);index['file_manifest']=[{'path':str(p.relative_to(SRC)).replace('\\','/'),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}for folder in [SRC/'Export',SRC/'NeckPatch',SRC/'NeckBridge']for p in sorted(folder.rglob('*'))if p.is_file()and p.suffix in ['.mesh','.dds','.anim']];index['verification']['neck_patch_json']=str(SRC/'NeckPatch/neck-patch-validation.json');dump(SRC/'Export/head-export-index.json',index);print([(c['actor'],c['variant'],c['present'],c.get('bones'))for c in cases])
+
