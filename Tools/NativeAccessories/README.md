@@ -1,3 +1,7 @@
+## V8：原生动画与资源精简
+
+最新的 1001 / 1002 修复工作流在 [v8/README.md](v8/README.md)。四模块使用真正的 UMA 待机和精确骨骼表；装饰 BS 去骨骼与蒙皮，纯色 DDS 统一 1×1 共享，并修复注册、accessory add、ethnicity、头根和 foot rest 的问题。新版保留网格及身体 BS 的绑定，只在动画中校准站姿。验证报告区分完整静态检查、Blender PDX 实际回读与尚未重跑的 CK3 实机。V7 是保留的历史输入。
+
 > V7 已扩展为 1001 / 1002 全量衣装及独立鞋袜，取消固定 clothed，男女空头分开。最新实现、输入契约和验证限制见 [v7/README.md](v7/README.md)。本文件继续保留 V6 基线说明。
 
 # 1001 native accessory workflow

@@ -1,0 +1,16 @@
+"""All actual bare-body vertices through all final real-source frames."""
+import json,sys,hashlib
+from pathlib import Path
+import numpy as np
+sys.path.insert(0,'E:/UmaViewer-Workspace/UmaViewer-source/Tools/PDXExporter')
+from build_ck3_mod import parser_only
+ROOT=Path('E:/UmaViewer-Exports/2026-10-12-UMA-V8');OUT=ROOT/'MotionSources';P=parser_only('E:/UmaViewer-Workspace/PDX-vendor/io_pdx_mesh');path=ROOT/'UMA-V8/gfx/models/portraits/uma/0001/uma_0001_body_base.mesh';shape=P.read_meshfile(str(path)).find('object')[0];m=shape.find('mesh');sk=shape.find('skeleton');names=[b.tag for b in sorted(sk,key=lambda n:n.get('ix')[0])];inv=[]
+for b in sorted(sk,key=lambda b:b.get('ix')[0]):x=np.eye(4);x[:3]=np.array(b.get('tx')).reshape(4,3).T;inv.append(x)
+inv=np.array(inv);p=np.array(m.get('p')).reshape(-1,3);tr=np.array(m.get('tri')).reshape(-1,3);skin=m.find('skin');ix=np.array(skin.get('ix')).reshape(-1,4);w=np.array(skin.get('w')).reshape(-1,4);bonejson=json.loads((ROOT/'Rigs/body.json').read_text());assert names==bonejson['names'];poses=np.load(OUT/'body-final-pose-evidence.npz')['world'];hp=np.column_stack([p,np.ones(len(p))]);edges=np.unique(np.sort(np.vstack([tr[:,[0,1]],tr[:,[1,2]],tr[:,[2,0]]]),axis=1),axis=0);length=np.linalg.norm(p[edges[:,1]]-p[edges[:,0]],axis=1);edges=edges[length>1e-4];length=length[length>1e-4];feet=(p[:,1]<20);samples=[];worst=[]
+for frame,pose in enumerate(poses):
+    mat=pose@inv;actual=np.zeros_like(p)
+    for slot in range(4):actual+=(np.einsum('nij,nj->ni',mat[np.maximum(ix[:,slot],0)],hp)[:,:3])*w[:,slot,None]
+    lengths=np.linalg.norm(actual[edges[:,1]]-actual[edges[:,0]],axis=1);ratio=lengths/length;entry={'frame':frame,'feet_min_cm':float(actual[feet,1].min()),'feet_p10_cm':float(np.percentile(actual[feet,1],10)),'feet_max_cm':float(actual[feet,1].max()),'edge_p99':float(np.percentile(ratio,99)),'edge_peak':float(ratio.max()),'nonfinite_vertices':int((~np.isfinite(actual).all(1)).sum()),'bounds_cm':[actual.min(0).tolist(),actual.max(0).tolist()]};samples.append(entry)
+    if frame in [0,30,60]:
+        ids=np.argsort(ratio)[-8:];worst.extend({'frame':frame,'vertices':edges[e].tolist(),'rest_length_cm':float(length[e]),'posed_length_cm':float(lengths[e]),'ratio':float(ratio[e]),'rest_positions_cm':p[edges[e]].tolist(),'skin_weights':[[{'bone':names[i],'weight':float(v)}for i,v in zip(ix[j],w[j])if v>1e-8]for j in edges[e]]}for e in ids)
+report={'mesh':str(path),'clip':str(OUT/'Final/animation/body/uma_body_native_idle.anim'),'clip_sha256':hashlib.sha256((OUT/'Final/animation/body/uma_body_native_idle.anim').read_bytes()).hexdigest(),'frames':len(poses),'ground_min_over_all_frames_cm':min(s['feet_min_cm']for s in samples),'ground_min_frame_max_cm':max(s['feet_min_cm']for s in samples),'edge_ratio_p99_max':max(s['edge_p99']for s in samples),'edge_ratio_peak':max(s['edge_peak']for s in samples),'foot_mask_rule':'rest p.y<20cm (same lower-leg/feet audit band)','all_source_motion_frames_finite':all(s['nonfinite_vertices']==0 for s in samples),'samples':samples,'worst_edges':worst};(OUT/'body-native-skin-allframes.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf8');print({k:v for k,v in report.items()if k not in ['samples','worst_edges']});print('WORST',worst[-1])
