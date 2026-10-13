@@ -15,6 +15,9 @@ def main():
             if isinstance(v,str)and v.startswith(source):return str(plan.parent)+v[len(source):]
             return v
         plan.write_text(json.dumps(relocate(json.loads(plan.read_text())),indent=2,ensure_ascii=False),encoding='utf8')
+    for folder in ['Reports','RigRepair','Diagnostics','Database']:
+        for f in(ROOT/folder).rglob('*.txt'):
+            if not f.read_bytes().startswith(b'\xef\xbb\xbf'):f.write_text(f.read_text(encoding='utf-8-sig'),encoding='utf-8-sig')
     dest=REPO/'Tools/NativeAccessories/v9';dest.mkdir(exist_ok=True)
     copied=[]
     for f in CODE.iterdir():
