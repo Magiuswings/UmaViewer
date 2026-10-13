@@ -8,7 +8,13 @@ def main():
         assert json.loads((ROOT/f'Reports/{name}.json').read_text())['passed']
     plan=ROOT/'Reports/contracts/AB-config-drafts/AB-plan.json'
     if plan.exists():
-        s=plan.read_text();s=s.replace(str(CODE/'AB-config-drafts').replace('\\','\\\\'),str(plan.parent).replace('\\','\\\\'));plan.write_text(s,encoding='utf8')
+        source=str(CODE/'AB-config-drafts')
+        def relocate(v):
+            if isinstance(v,dict):return{k:relocate(w)for k,w in v.items()}
+            if isinstance(v,list):return[relocate(w)for w in v]
+            if isinstance(v,str)and v.startswith(source):return str(plan.parent)+v[len(source):]
+            return v
+        plan.write_text(json.dumps(relocate(json.loads(plan.read_text())),indent=2,ensure_ascii=False),encoding='utf8')
     dest=REPO/'Tools/NativeAccessories/v9';dest.mkdir(exist_ok=True)
     copied=[]
     for f in CODE.iterdir():
