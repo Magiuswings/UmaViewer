@@ -79,7 +79,7 @@ for file,e in entities:
     mesh=scalar(e,'pdxmesh')
     if mesh not in meshes or not meshes[mesh]['attachment']:continue
     name=scalar(e,'name');gd=dict(blocks(e)).get('game_data','');ud=dict(blocks(gd)).get('portrait_entity_user_data','');pa=dict(blocks(ud)).get('portrait_accessory','')
-    if scalar(pa,'pattern_mask')!='uma_0001_tint_mask.dds' or scalar(pa,'variation')!='uma_plain_tint':missing.append(name)
+    if scalar(pa,'pattern_mask')!='gfx/models/portraits/uma/0001/shared/uma_0001_tint_mask.dds' or scalar(pa,'variation')!='uma_plain_tint':missing.append(name)
     attachments.append(dict(entity=name,file=file,mesh=mesh))
 assert len(attachments)==196 and not missing and len(neck_slots)==4
 assert all(x['basename_only'] and x['unique_basename'] for x in texture_refs)

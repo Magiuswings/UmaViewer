@@ -29,6 +29,8 @@ def main():
         t=clausewitz(f.read_text(encoding='utf-8-sig'))
         for k,v in leaves(t):
             if isinstance(v,str)and v.lower().endswith(('.dds','.mesh','.anim')):
+                if k=='pattern_mask':
+                    check(v.startswith('gfx/')and(MOD/v).is_file(),'pattern_mask requires existing gfx-relative path '+f.name+' '+v);continue
                 check('/'not in v and '\\'not in v,'asset nonshader resource contains path '+f.name+' '+v);check(v.lower()in catalog,'missing global resource '+v+' '+f.name)
         for kind,table in [('pdxmesh',meshes),('entity',entities),('skeletal_animation_set',macros)]:
             for v in values(t,kind):

@@ -16,6 +16,8 @@ def archive(path,entries):
     with zipfile.ZipFile(path)as z:assert z.testzip()is None
     return dict(file=str(path),bytes=path.stat().st_size,sha256=sha(path),CRC_passed=True)
 def main():
+    from resource_references_v10 import main as fix_resource_references
+    fix_resource_references()
     for name in ['static-validation','task-contract-validation','native-attachment-validation','blender-sdk-native-validation','blender-native-assembly','heel-head-integration','independent-material-review']:
         r=json.loads((ROOT/f'Reports/{name}.json').read_text(encoding='utf-8-sig'));ok=r.get('passed')or r.get('static_passed')
         if name=='independent-material-review':ok=r.get('status')=='static_structure_and_CPU_cases_passed'and not r.get('confirmed_findings')

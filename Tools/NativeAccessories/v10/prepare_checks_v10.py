@@ -12,6 +12,10 @@ def adapt(s):
 for name in ['validate','assembly_math','assembly','prepare_preview','sdk_verify']:
     suffix='_blender'if name in ['assembly','sdk_verify']else''
     source=src/f'{name}_v9{suffix}.py';s=adapt(source.read_text());
+    if name=='validate':
+        marker="                check('/'not in v and '\\\\'not in v,'asset nonshader resource contains path '+f.name+' '+v);check(v.lower()in catalog,'missing global resource '+v+' '+f.name)"
+        exception="                if k=='pattern_mask':\n                    check(v.startswith('gfx/')and(MOD/v).is_file(),'pattern_mask requires existing gfx-relative path '+f.name+' '+v);continue\n"
+        assert marker in s;s=s.replace(marker,exception+marker)
     if name=='sdk_verify':
         start=s.index('modules=[');stop=s.index('\nfor module,file in modules:',start)
         s=s[:start]+"modules=[('body',MOD/'gfx/models/portraits/uma/0001/uma_0001_body_base.mesh'),('head',MOD/'gfx/models/portraits/uma/0001/uma_0001_head_female.mesh'),('heel',MOD/'gfx/models/portraits/uma/0001/uma_0001_body_base.mesh')]"+s[stop:]

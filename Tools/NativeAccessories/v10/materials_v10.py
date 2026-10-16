@@ -7,9 +7,10 @@ from paths_v10 import ROOT,MOD,REPO,PLUGIN,GAME
 sys.path[:0]=[str(REPO/'Tools/PDXExporter'),str(REPO/'Tools/NativeAccessories/v8')]
 from build_ck3_mod import parser_only,clausewitz,one,values,script_block
 from configure_assets_v8 import render
+from resource_references_v10 import format_resource_references
 P=parser_only(PLUGIN)
 def dump(p,d):p.write_text(json.dumps(d,indent=2,ensure_ascii=False),encoding='utf8')
-def save_asset(p,t):p.write_text(render(t)+'\n',encoding='utf8')
+def save_asset(p,t):p.write_text(format_resource_references(render(t)+'\n'),encoding='utf8')
 def dds(path,rgba):Image.fromarray(np.asarray(rgba,np.uint8),'RGBA').save(path,pixel_format='DXT5')
 def main():
     cat={f.name:f for f in MOD.rglob('*.dds')};common=MOD/'gfx/models/portraits/uma/0001/shared';base=MOD/'gfx/models/portraits/uma/0001/uma_0001_body_base.mesh';body=P.read_meshfile(str(base)).find('object')[0].find('mesh');uv=np.asarray(body.get('u0')).reshape(-1,2);atlas=np.array(Image.open(cat[body.find('material').get('diff')[0]]).convert('RGBA'));rings=json.loads((ROOT/'Reports/neck-delivery-source.json').read_text());ids=sorted(set(i for r in rings['actors']for i in r['lower_ring_body_vertex_ids']));u=uv[ids];x=np.clip(np.rint(u[:,0]*(atlas.shape[1]-1)).astype(int),0,atlas.shape[1]-1);y=np.clip(np.rint(u[:,1]*(atlas.shape[0]-1)).astype(int),0,atlas.shape[0]-1);reference=np.rint(atlas[y,x].mean(0)).astype(np.uint8);reference[3]=255
@@ -34,7 +35,7 @@ def main():
         f=common/f'uma_0001_tint_{name}.dds';dds(f,np.asarray(pixel,np.uint8)[None,None,:]);refs[name]=f.name
     palette=common/'uma_0001_tint_palette.dds';dds(palette,np.full((1,16,4),255,np.uint8));refs['palette']=palette.name
     vt=[('pattern_textures',[('name','uma_plain_tint'),('colormask',refs['mask']),('normal',refs['normal']),('properties',refs['properties'])]),('pattern_layout',[('name','uma_plain_tint'),('scale',[('min','1.0'),('max','1.0')]),('rotation',[('min','0'),('max','0')]),('offset',[('x',[('min','0'),('max','0')]),('y',[('min','0'),('max','0')])])]),('variation',[('name','uma_plain_tint'),('pattern',[('weight','1')]+[(c,[('textures','uma_plain_tint'),('layout','uma_plain_tint')])for c in ['r','g','b','a']]),('color_palette',[('weight','1'),('texture',refs['palette'])])])]
-    vfile=MOD/'gfx/portraits/accessory_variations/uma_clothing_colors.txt';vfile.parent.mkdir(exist_ok=True);vfile.write_text(script_block(vt)+'\n',encoding='utf-8-sig')
+    vfile=MOD/'gfx/portraits/accessory_variations/uma_clothing_colors.txt';vfile.parent.mkdir(exist_ok=True);vfile.write_text(format_resource_references(script_block(vt)+'\n'),encoding='utf-8-sig')
     attachment_entities=[]
     for f in(MOD/'gfx/models/portraits/uma').rglob('*.asset'):
         t=clausewitz(f.read_text(encoding='utf-8-sig'));supported=set()

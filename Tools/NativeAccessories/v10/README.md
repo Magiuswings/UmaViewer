@@ -1,5 +1,7 @@
 # UMA V10：编辑器注册、服装调色、衣帽位置及高跟鞋测试
 
+资源文本中的文件名均加双引号。`pattern_mask` 使用以 `gfx/` 开头的模组相对路径，例如 `"gfx/models/portraits/uma/0001/shared/uma_0001_tint_mask.dds"`；普通 meshsettings 的 DDS 仍使用带引号的 basename。生成材质和打包时都会执行此规则。
+
 输入为保留的 V9，继续包含 1001 SpecialWeek / 1002 SilenceSuzuka 全部部件及 71 个衣装家族。64 个家族共用同一资产，两人另有 4 / 3 个专属。当前原版参考是本机 CK3 1.20.0.4，Blender 使用迁到 E 盘的 4.2.23，PDX IO 为未修改 v0.91。
 
 ## 注册与着色
